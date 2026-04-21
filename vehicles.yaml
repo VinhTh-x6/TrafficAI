@@ -1,0 +1,9 @@
+path: D:\TrafficAI\vehicles_dataset
+train: images/train
+val: images/val
+
+names:
+    0: motorbike
+    1: car
+    2: bus
+    3: truck 
