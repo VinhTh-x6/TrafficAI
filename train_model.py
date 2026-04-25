@@ -18,4 +18,5 @@ def train_model(resume=False):
         )
 
 if __name__ == "__main__":
-    train_model(True)
+    # Train từ đầu nếu resume=False, hoặc tiếp tục từ checkpoint nếu resume=True
+    train_model(True) 
