@@ -1,9 +1,9 @@
 import cv2
 from ultralytics import YOLO
 
-if __name__ == "__main__":
-    model = YOLO(r"D:\TrafficAI\runs\detect\train\weights\best.pt")
-    cap = cv2.VideoCapture(r"D:\TrafficAI\test.mp4")
+def tracking_counting(video_path, model_path):
+    model = YOLO(model_path)
+    cap = cv2.VideoCapture(video_path)
     track_list = dict()
     id_set = set()
     class_counts = {
@@ -19,24 +19,13 @@ if __name__ == "__main__":
         "truck": (255,64,64)      
     }
 
-    # w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    # h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    # fps = int(cap.get(cv2.CAP_PROP_FPS))
-
-    # out = cv2.VideoWriter(
-    #     "output.mp4",
-    #     cv2.VideoWriter_fourcc(*"mp4v"),
-    #     fps,
-    #     (w, h)
-    # )
-
     while True:
         ret, frame = cap.read()
         if not ret:
             break
         # vẽ line giữa frame để đếm xe đi qua
         line = frame.shape[0] // 2
-        cv2.line(frame, (0, line), (frame.shape[1], line), (255, 255, 255), 2)
+        # cv2.line(frame, (0, line), (frame.shape[1], line), (255, 255, 255), 2)
         # Tracking với Bytetrack
         results = model.track(
             source=frame,
@@ -71,20 +60,19 @@ if __name__ == "__main__":
                         if y_prev >= line and y_curr < line:
                             class_counts[model.names[int(cl)]] += 1
                             id_set.add(id)
-                # lable và màu sắc theo class
-                lable = model.names[int(cl)]
-                color = colors.get(lable, (255,64,64))
-                # vẽ bbox, tâm bbox, text
+                
+                label = model.names[int(cl)]
+                color = colors.get(label, (255,64,64))
                 cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-                cv2.circle(frame, (cx, cy), 2, (191,62,255), -1)
-                cv2.putText(frame, f"{lable} ID:{id}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+                # Tên class và ID của đối tượng
+                text = f"{label} ID:{id}"
+                (text_w, text_h), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+                pad = 4
+                cv2.rectangle(frame, (x1, y1 - text_h - 2 * pad), (x1 + text_w + 2 * pad, y1), color, -1)
+                cv2.putText(frame, text, (x1 + pad, y1 - pad), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
     
-        for i, (k, v) in enumerate(class_counts.items()):
-            cv2.putText(frame, f"{k}: {v}", (20, 20 + i*30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, colors.get(k, (255,64,64)), 2)
-        cv2.imshow("Frame", frame)
-        # out.write(frame)
-        if cv2.waitKey(1) & 0xFF == 27:
-            break
-
+        yield frame, class_counts    
     cap.release()
-    cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+    print("Hello world")
