@@ -22,7 +22,9 @@ class VehicleCounter:
         self.track_list = {}
         self.counted_ids = set()
 
+    # xử lý từng frame, trả về frame đã vẽ bounding box và cập nhật đếm xe
     def process_frame(self, frame):
+        # dùng model để detect và track xe
         results = self.model.track(
             source=frame,
             imgsz=640,
@@ -30,12 +32,14 @@ class VehicleCounter:
             tracker="bytetrack.yaml",
             persist=True
         )
+        # vẽ line
         if self.mode == "line":
             cv2.line(frame, (0, frame.shape[0] // 2), (frame.shape[1], frame.shape[0] // 2), (255, 255, 255), 1)
-            
+
         boxes = results[0].boxes
         if boxes is None or boxes.id is None:
             return frame
+        # lấy thông tin bounding box, ID và class của đối tượng
         ids = boxes.id.cpu().numpy().astype(int)
         xyxy = boxes.xyxy.cpu().numpy()
         cls = boxes.cls.cpu().numpy().astype(int)
@@ -43,7 +47,7 @@ class VehicleCounter:
         for box, id, cl in zip(xyxy, ids, cls):
             x1, y1, x2, y2 = map(int, box)
             cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
-
+            # lấy tên class và màu tương ứng
             label = self.model.names[int(cl)]
             color = self.colors.get(label, (255,64,64))
             if self.mode == "polygon":
@@ -53,21 +57,21 @@ class VehicleCounter:
             
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 1)
             cv2.circle(frame, (cx, cy), 1, (191,62,255), -1)
-            # Tên class và ID của đối tượng
+            # tên class và ID của đối tượng
             text = f"{label} ID:{id}"
             (text_w, text_h), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1)
             cv2.rectangle(frame, (x1, y1 - text_h - 2), (x1 + text_w + 2, y1), color, -1)
             cv2.putText(frame, text, (x1 + 1, y1 - 1), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1, cv2.LINE_AA)
 
+        # vẽ vùng polygon nếu có
         if self.mode == "polygon" and self.region_points is not None:
             over = frame.copy()
             cv2.fillPoly(over, [self.region_points], (255, 181, 197))
             alpha = 0.3
             frame = cv2.addWeighted(over, alpha, frame, 1 - alpha, 0)
             cv2.polylines(frame, [self.region_points], True, (255, 181, 197), 1)
-
         return frame
-
+    # đếm xe qua line
     def _count_line(self, id, cx, cy, label, frame):
         line = frame.shape[0] // 2
         if id not in self.track_list:
@@ -83,7 +87,7 @@ class VehicleCounter:
                     if label in self.class_counts:
                         self.class_counts[label] += 1
                         self.counted_ids.add(id)
-
+    # đếm xe qua polygon    
     def _count_polygon(self, id, cx, cy, label):
         if self.region_points is None:
             return
@@ -93,11 +97,14 @@ class VehicleCounter:
                 self.class_counts[label] += 1
                 self.counted_ids.add(id)
 
+# generator function để xử lý video và trả về frame đã vẽ bounding box cùng với số lượng xe đếm được
 def tracking_counting(source, model_path, output_path="output.mp4", source_type="camera", mode="line", region_points=None):
+    # mở video hoặc camera
     cap = cv2.VideoCapture(source)
     assert cap.isOpened(), "Cannot open source"
 
     counter = VehicleCounter(model_path, mode=mode)
+    # lấy thông số video để tạo video output và xử lý frame
     w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = cap.get(cv2.CAP_PROP_FPS)
@@ -108,19 +115,24 @@ def tracking_counting(source, model_path, output_path="output.mp4", source_type=
     else:
         if fps == 0 or fps is None:
             fps = 25
+
+        # định nghĩa vùng polygon nếu chạy với video upload
         region_points = np.array([[168, 82], [403, 93], [426, 159], [86, 143]], dtype=np.int32).reshape((-1, 1, 2))
         # 2 np.array([[168, 82], [403, 93], [426, 159], [86, 143]], 1 np.array([[56, 134], [440, 219], [440, 138], [178, 87]]
         counter.region_points = region_points
+    # tạo video writer để lưu video output
     out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
 
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             break
+        # resize frame nếu là camera để tăng tốc độ xử lý
         if source_type == "camera":
             frame = cv2.resize(frame, (w, h))
         frame = counter.process_frame(frame)
         out.write(frame)
+        # trả về frame đã vẽ bounding box và số lượng xe đếm được để cập nhật UI
         yield frame, counter.class_counts
 
     cap.release()
