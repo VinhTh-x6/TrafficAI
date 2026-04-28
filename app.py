@@ -7,7 +7,7 @@ import plotly.express as px
 import plotly.io as pio
 import time
 from track_count import tracking_counting
-
+# Streamlit page configuration and styling
 st.set_page_config(page_title="TrafficAI", layout="wide")
 pio.templates.default = "plotly_dark"
 
@@ -59,11 +59,12 @@ for key in ["done", "history", "final_counts"]:
     if key not in st.session_state:
         st.session_state[key] = False if key == "done" else None if key == "final_counts" else []
 
-# input
+# input source
 st.subheader("📡 Input Source")
 source_type = st.radio("Choose source type", ["Upload Video", "Phone Camera"])
 video_file = None
 camera_url = None
+# set parameters based on source type
 if source_type == "Upload Video":
     st.markdown("### 📁 Upload your video")
     count_mode = "region"
@@ -78,7 +79,7 @@ output_video_path = os.path.join(tempfile.gettempdir(), "output.mp4")
 
 # process video
 if run:
-    # save uploaded video to temp file
+    # set parameters based on source type
     total_frames = 1000
     fps = 25
     if source_type == "Upload Video":
@@ -102,7 +103,7 @@ if run:
     col_video, col_table = st.columns([2, 1])
     history = []
     frame_id = 0
-    # stream video & update table in real-time
+    # UI containers
     with col_video:
         st.markdown("### 🎥 Video Stream")
         video_box = st.empty()
@@ -115,7 +116,7 @@ if run:
         table_box = st.empty()
         kpi_box = st.empty()
         download_csv = st.empty()
-    # loop through video frames and update UI
+    # run tracking and counting
     generator = tracking_counting(
         source=source,
         model_path=r"D:\TrafficAI\runs\detect\train\weights\best.pt",
@@ -145,7 +146,7 @@ if run:
             "truck": counts.get("truck", 0),
             "motorbike": counts.get("motorbike", 0)
         })
-        # update progress
+        # update progress/status
         if source_type == "Upload Video":
             percent = int((frame_id / total_frames) * 100)
             progress_bar.progress(percent)
@@ -155,6 +156,7 @@ if run:
             status_box.markdown(f"📡 Live Camera | ⏱ {elapsed:.1f}s")
 
     progress_container.empty()
+    # final status update
     if source_type == "Upload Video":
         status_box.markdown("✅ Completed")
     else:
