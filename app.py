@@ -5,6 +5,7 @@ import pandas as pd
 import os
 import plotly.express as px
 import plotly.io as pio
+import time
 from track_count import tracking_counting
 
 st.set_page_config(page_title="TrafficAI", layout="wide")
@@ -20,7 +21,7 @@ st.markdown("""
 st.markdown("""
 <style>
 .block-container {
-    padding-top: 1rem;
+    padding-top: 3rem;
     padding-bottom: 1rem;
 }
 /* Plotly */
@@ -59,19 +60,44 @@ for key in ["done", "history", "final_counts"]:
         st.session_state[key] = False if key == "done" else None if key == "final_counts" else []
 
 # input
-video_file = st.file_uploader("Upload video", type=["mp4"])
+st.subheader("📡 Input Source")
+source_type = st.radio("Choose source type", ["Upload Video", "Phone Camera"])
+video_file = None
+camera_url = None
+if source_type == "Upload Video":
+    st.markdown("### 📁 Upload your video")
+    count_mode = "region"
+    video_file = st.file_uploader("Choose file", type=["mp4"])
+elif source_type == "Phone Camera":
+    st.markdown("### 📱 Connect your phone camera")
+    count_mode = "Line"
+    camera_url = st.text_input("Enter camera URL", "http://192.168.1.222:8080/video")
 run = st.button("🚀 Run System")
+start_time = time.time()
 output_video_path = os.path.join(tempfile.gettempdir(), "output.mp4")
 
 # process video
-if video_file and run:
+if run:
     # save uploaded video to temp file
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tfile:
+    total_frames = 1000
+    fps = 25
+    if source_type == "Upload Video":
+        if not video_file:
+            st.warning("Please upload video")
+            st.stop()
+        tfile = tempfile.NamedTemporaryFile(delete=False)
         tfile.write(video_file.read())
-        video_path = tfile.name
-    cap = cv2.VideoCapture(video_path)
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        source = tfile.name
+        cap = cv2.VideoCapture(source)
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        source_type_run = "upload"
+        mode = "polygon"
+    else:
+        source = camera_url
+        source_type_run = "camera"
+        mode = "line"
+        region = None
 
     col_video, col_table = st.columns([2, 1])
     history = []
@@ -90,11 +116,14 @@ if video_file and run:
         kpi_box = st.empty()
         download_csv = st.empty()
     # loop through video frames and update UI
-    for frame, counts in tracking_counting(
-        video_path,
-        r"D:\TrafficAI\runs\detect\train\weights\best.pt",
-        output_video_path
-    ):
+    generator = tracking_counting(
+        source=source,
+        model_path=r"D:\TrafficAI\runs\detect\train\weights\best.pt",
+        output_path=output_video_path,
+        source_type=source_type_run,
+        mode=mode
+    )
+    for frame, counts in generator:
         frame_id += 1
         # convert BGR to RGB for display
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -117,12 +146,20 @@ if video_file and run:
             "motorbike": counts.get("motorbike", 0)
         })
         # update progress
-        percent = int((frame_id / total_frames) * 100)
-        progress_bar.progress(percent)
-        status_box.markdown(f"🚦 Processing... **{percent}%**")
+        if source_type == "Upload Video":
+            percent = int((frame_id / total_frames) * 100)
+            progress_bar.progress(percent)
+            status_box.markdown(f"🚦 Processing... **{percent}%**")
+        else:
+            elapsed = time.time() - start_time
+            status_box.markdown(f"📡 Live Camera | ⏱ {elapsed:.1f}s")
 
     progress_container.empty()
-    status_box.markdown("✅ Completed")
+    if source_type == "Upload Video":
+        status_box.markdown("✅ Completed")
+    else:
+        elapsed = time.time() - start_time
+        status_box.markdown(f"📹 Camera session finished | ⏱ Total time: {elapsed:.2f}s")
     # download video & csv
     with download_video:
         with open(output_video_path, "rb") as f:
@@ -210,4 +247,4 @@ if st.session_state.done:
     )
     fig_bar.update_traces(textposition="outside")
     fig_bar.update_layout(showlegend=False, yaxis_title="Vehicle  Count")
-    st.plotly_chart(style(fig_bar), use_container_width=True)
+    st.plotly_chart(style(fig_bar), use_container_width=True) 
