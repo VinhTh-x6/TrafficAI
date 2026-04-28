@@ -1,90 +1,131 @@
 import cv2
 from ultralytics import YOLO
+import numpy as np
 
-def tracking_counting(video_path, model_path, output_path="output.mp4"):
-    model = YOLO(model_path)
-    cap = cv2.VideoCapture(video_path)
-    # Lấy thông số video
-    fps = cap.get(cv2.CAP_PROP_FPS)
+class VehicleCounter:
+    def __init__(self, model_path, mode="line", region_points=None):
+        self.model = YOLO(model_path)
+        self.mode = mode
+        self.region_points = region_points
+        self.class_counts = {
+            "motorbike": 0,
+            "car": 0,
+            "bus": 0,
+            "truck": 0
+        }
+        self.colors = {
+            "motorbike": (0,191,255),
+            "car": (124,252,0),
+            "bus": (255,0,0),
+            "truck": (255,64,64)
+        }
+        self.track_list = {}
+        self.counted_ids = set()
+
+    def process_frame(self, frame):
+        results = self.model.track(
+            source=frame,
+            imgsz=640,
+            conf=0.25,
+            tracker="bytetrack.yaml",
+            persist=True
+        )
+        if self.mode == "line":
+            cv2.line(frame, (0, frame.shape[0] // 2), (frame.shape[1], frame.shape[0] // 2), (255, 255, 255), 1)
+            
+        boxes = results[0].boxes
+        if boxes is None or boxes.id is None:
+            return frame
+        ids = boxes.id.cpu().numpy().astype(int)
+        xyxy = boxes.xyxy.cpu().numpy()
+        cls = boxes.cls.cpu().numpy().astype(int)
+
+        for box, id, cl in zip(xyxy, ids, cls):
+            x1, y1, x2, y2 = map(int, box)
+            cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
+
+            label = self.model.names[int(cl)]
+            color = self.colors.get(label, (255,64,64))
+            if self.mode == "polygon":
+                self._count_polygon(id, cx, cy, label)
+            elif self.mode == "line":
+                self._count_line(id, cx, cy, label, frame)
+            
+            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 1)
+            cv2.circle(frame, (cx, cy), 1, (191,62,255), -1)
+            # Tên class và ID của đối tượng
+            text = f"{label} ID:{id}"
+            (text_w, text_h), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1)
+            cv2.rectangle(frame, (x1, y1 - text_h - 2), (x1 + text_w + 2, y1), color, -1)
+            cv2.putText(frame, text, (x1 + 1, y1 - 1), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1, cv2.LINE_AA)
+
+        if self.mode == "polygon" and self.region_points is not None:
+            over = frame.copy()
+            cv2.fillPoly(over, [self.region_points], (255, 181, 197))
+            alpha = 0.3
+            frame = cv2.addWeighted(over, alpha, frame, 1 - alpha, 0)
+            cv2.polylines(frame, [self.region_points], True, (255, 181, 197), 1)
+
+        return frame
+
+    def _count_line(self, id, cx, cy, label, frame):
+        line = frame.shape[0] // 2
+        if id not in self.track_list:
+            self.track_list[id] = []
+        self.track_list[id].append((cx, cy))
+        if len(self.track_list[id]) > 2:
+            self.track_list[id].pop(0)
+        if len(self.track_list[id]) == 2:
+            y_prev = self.track_list[id][0][1]
+            y_curr = self.track_list[id][1][1]
+            if id not in self.counted_ids:
+                if y_prev >= line and y_curr < line:
+                    if label in self.class_counts:
+                        self.class_counts[label] += 1
+                        self.counted_ids.add(id)
+
+    def _count_polygon(self, id, cx, cy, label):
+        if self.region_points is None:
+            return
+        inside = cv2.pointPolygonTest(self.region_points, (cx, cy), False) >= 0
+        if inside and id not in self.counted_ids:
+            if label in self.class_counts:
+                self.class_counts[label] += 1
+                self.counted_ids.add(id)
+
+def tracking_counting(source, model_path, output_path="output.mp4", source_type="camera", mode="line", region_points=None):
+    cap = cv2.VideoCapture(source)
+    assert cap.isOpened(), "Cannot open source"
+
+    counter = VehicleCounter(model_path, mode=mode)
     w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    if source_type == "camera":
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        w, h = 640, 360
+        fps = 25
+    else:
+        if fps == 0 or fps is None:
+            fps = 25
+        region_points = np.array([[168, 82], [403, 93], [426, 159], [86, 143]], dtype=np.int32).reshape((-1, 1, 2))
+        # 2 np.array([[168, 82], [403, 93], [426, 159], [86, 143]], 1 np.array([[56, 134], [440, 219], [440, 138], [178, 87]]
+        counter.region_points = region_points
+    out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
 
-    # Tạo writer
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out = cv2.VideoWriter(output_path, fourcc, fps, (w, h))
-
-    track_list = dict()
-    id_set = set()
-    class_counts = {
-        "motorbike": 0,
-        "car": 0,          
-        "bus": 0,         
-        "truck": 0 
-    }
-    colors = {
-        "motorbike": (0,191,255),
-        "car": (124,252,0),          
-        "bus": (255,0,0),         
-        "truck": (255,64,64)      
-    }
-
-    while True:
+    while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             break
-        # vẽ line giữa frame để đếm xe đi qua
-        line = frame.shape[0] // 2
-        # cv2.line(frame, (0, line), (frame.shape[1], line), (255, 255, 255), 2)
-        # Tracking với Bytetrack
-        results = model.track(
-            source=frame,
-            imgsz=960,
-            conf=0.25,
-            tracker="bytetrack.yaml",
-            line_width=1,
-            persist=True
-        )
-        # lấy thông tin bounding box, ID và class của từng đối tượng được theo dõi
-        boxes = results[0].boxes
-        if boxes is not None and boxes.id is not None:
-            ids = boxes.id.cpu().numpy().astype(int)
-            xyxy = boxes.xyxy.cpu().numpy() 
-            clf = boxes.cls.cpu().numpy().astype(int)
-
-            for box, id, cl in zip(xyxy, ids, clf):
-                x1, y1, x2, y2 = map(int, box)
-                # center point của bounding box
-                cx = (x1 + x2) // 2
-                cy = (y1 + y2) // 2
-                # theo dõi vị trí của từng ID qua các frame và đếm khi chúng đi qua line
-                if id not in track_list:
-                    track_list[id] = []
-                track_list[id].append((cx, cy))
-                if len(track_list[id]) > 2:
-                    track_list[id].pop(0)
-                if len(track_list[id]) == 2:
-                    y_prev = track_list[id][0][1]
-                    y_curr = track_list[id][1][1]
-                    if id not in id_set:
-                        # đếm xe khi chúng đi qua line từ duới lên trên
-                        if y_prev >= line and y_curr < line:
-                            class_counts[model.names[int(cl)]] += 1
-                            id_set.add(id)
-                
-                label = model.names[int(cl)]
-                color = colors.get(label, (255,64,64))
-                cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-                cv2.circle(frame, (cx, cy), 2, (191,62,255), -1)
-                # Tên class và ID của đối tượng
-                text = f"{label} ID:{id}"
-                (text_w, text_h), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-                pad = 4
-                cv2.rectangle(frame, (x1, y1 - text_h - 2 * pad), (x1 + text_w + 2 * pad, y1), color, -1)
-                cv2.putText(frame, text, (x1 + pad, y1 - pad), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
-
+        if source_type == "camera":
+            frame = cv2.resize(frame, (w, h))
+        frame = counter.process_frame(frame)
         out.write(frame)
-        yield frame, class_counts    
+        yield frame, counter.class_counts
+
     cap.release()
+    out.release()
 
 if __name__ == "__main__":
-    print("Hello world")
+    print("Done!")
+    
