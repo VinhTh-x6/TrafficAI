@@ -6,54 +6,17 @@ import os
 import plotly.express as px
 import plotly.io as pio
 import time
+from layout import *
 from track_count import tracking_counting
+from charts import *
+
 # Streamlit page configuration and styling
 st.set_page_config(page_title="TrafficAI", layout="wide")
 pio.templates.default = "plotly_dark"
+# render header and UI style
+render_header()
+render_ui_style()
 
-# header
-st.markdown("""
-<h1 style='text-align:center; color:#00C2FF;'>🚦 TrafficAI System</h1>
-<p style='text-align:center; color:gray;'>Real-time Vehicle Detection & Counting System</p>
-""", unsafe_allow_html=True)
-
-# UI style
-st.markdown("""
-<style>
-.block-container {
-    padding-top: 3rem;
-    padding-bottom: 1rem;
-}
-/* Plotly */
-div[data-testid="stPlotlyChart"] {
-    background: #111827;
-    border-radius: 14px;
-    padding: 10px;
-    box-shadow: 0px 6px 25px rgba(0,0,0,0.5);
-}
-/* Image */
-div[data-testid="stImage"] {
-    border-radius: 16px;
-    border: 1px solid #38BDF8;
-    box-shadow: 0 0 20px rgba(56,189,248,0.4);
-    background: rgba(17,24,39,0.8);
-    padding: 6px;
-}
-/* Table */
-div[data-testid="stDataFrame"] {
-    border-radius: 18px;
-    overflow: hidden;
-    background: #0B1220;
-    border: 1px solid #38BDF8;
-    box-shadow: 0 10px 30px rgba(56,189,248,0.25);
-    padding: 8px;
-}
-div[data-testid="stDataFrame"] table tbody tr:hover {
-    background-color: rgba(56,189,248,0.08);
-    transition: 0.2s;
-}
-</style>
-""", unsafe_allow_html=True)
 # session state
 for key in ["done", "history", "final_counts"]:
     if key not in st.session_state:
@@ -178,75 +141,35 @@ if run:
     st.session_state.final_counts = counts
     st.session_state.done = True
 
-# style function
-def style(fig):
-    fig.update_layout(
-        paper_bgcolor="#111827",
-        plot_bgcolor="#111827",
-        font=dict(color="white"),
-        margin=dict(l=10, r=10, t=40, b=10)
-    )
-    return fig
-
 # data visualization
 if st.session_state.done:
     st.markdown("---")
+    # final counts for pie and bar charts
     counts = st.session_state.final_counts
     df_final = pd.DataFrame({
         "Vehicle Type": list(counts.keys()),
         "Count": list(counts.values())
     })
-    col_pie, col_line = st.columns(2)
+    # prepare line chart data
+    df_line = pd.DataFrame(st.session_state.history)
+    df_line["time"] = df_line["time"].astype(int)
+    df_line = df_line.groupby("time")[[
+        "car", "bus", "truck", "motorbike"
+    ]].mean().reset_index()
+    for col in ["car", "bus", "truck", "motorbike"]:
+        df_line[col] = df_line[col].rolling(5, min_periods=1).mean()
 
+    col_pie, col_line = st.columns(2)
     # pie chart
     with col_pie:
         st.subheader("🟠 Vehicle Ratio")
-        fig_pie = px.pie(
-            df_final,
-            names="Vehicle Type",
-            values="Count",
-            hole=0.6,
-            color_discrete_sequence=["#38BDF8", "#22C55E", "#F97316", "#A855F7"]
-        )
-        fig_pie.update_traces(
-            textinfo="percent",
-            pull=[0.05] * len(df_final),
-            marker=dict(line=dict(color="#111827", width=2))
-        )
-        st.plotly_chart(style(fig_pie), use_container_width=True)
+        st.plotly_chart(pie_chart(df_final), use_container_width=True)
 
     # line chart
     with col_line:
         st.subheader("📈 Traffic Over Time")
-        df_line = pd.DataFrame(st.session_state.history)
-        df_line["time"] = df_line["time"].astype(int)
-        df_line = df_line.groupby("time")[[
-            "car", "bus", "truck", "motorbike"
-        ]].mean().reset_index()
-
-        for col in ["car", "bus", "truck", "motorbike"]:
-            df_line[col] = df_line[col].rolling(5, min_periods=1).mean()
-        fig_line = px.line(
-            df_line,
-            x="time",
-            y=["car", "bus", "truck", "motorbike"],
-            color_discrete_sequence=["#38BDF8", "#22C55E", "#F97316", "#A855F7"]
-        )
-
-        fig_line.update_traces(line=dict(width=3))
-        fig_line.update_layout(hovermode="x unified", xaxis_title="Time (s)", yaxis_title="Vehicle  Count")
-        st.plotly_chart(style(fig_line), use_container_width=True)
+        st.plotly_chart(line_chart(df_line), use_container_width=True)
 
     # bar chart
     st.subheader("📊 Vehicle Distribution")
-    fig_bar = px.bar(
-        df_final,
-        x="Vehicle Type",
-        y="Count",
-        text="Count",
-        color="Vehicle Type",
-        color_discrete_sequence=["#38BDF8", "#22C55E", "#F97316", "#A855F7"]
-    )
-    fig_bar.update_traces(textposition="outside")
-    fig_bar.update_layout(showlegend=False, yaxis_title="Vehicle  Count")
-    st.plotly_chart(style(fig_bar), use_container_width=True) 
+    st.plotly_chart(bar_chart(df_final), use_container_width=True) 
