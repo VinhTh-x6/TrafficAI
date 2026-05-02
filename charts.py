@@ -35,7 +35,7 @@ def line_chart(df):
         color_discrete_sequence=["#38BDF8", "#22C55E", "#F97316", "#A855F7"]
     )
     fig_line.update_traces(line=dict(width=3))
-    fig_line.update_layout(hovermode="x unified", xaxis_title="Time (s)", yaxis_title="Vehicle  Count")
+    fig_line.update_layout(hovermode="x unified", legend_title_text="", xaxis_title="Thời gian", yaxis_title="Số phương tiện")
     return style(fig_line)
 
 # bar chart
@@ -49,5 +49,25 @@ def bar_chart(df):
         color_discrete_sequence=["#38BDF8", "#22C55E", "#F97316", "#A855F7"]
     )
     fig_bar.update_traces(textposition="outside")
-    fig_bar.update_layout(showlegend=False, yaxis_title="Vehicle  Count")
+    fig_bar.update_layout(showlegend=False, xaxis_title="Loại phương tiện", yaxis_title="Số phương tiện")
     return style(fig_bar)
+
+# stacked bar chart for history comparison
+def stacked_bar_chart(df):
+    fig = px.bar(
+        df,
+        x="time_label",
+        y=["car", "bus", "truck", "motorbike"],
+        color_discrete_sequence=["#38BDF8", "#22C55E", "#F97316", "#A855F7"],
+        barmode="stack"
+    )
+    fig.update_traces(width=0.45)
+    fig.update_layout(legend=dict(
+        orientation="h", 
+        yanchor="bottom",
+        y=1.02,
+        xanchor="left",
+        x=-0.03), 
+        legend_title_text="",
+        xaxis_title="Thời gian", yaxis_title="Số phương tiện")
+    return style(fig)
