@@ -3,8 +3,8 @@ import streamlit as st
 # header
 def render_header():
     st.markdown("""
-    <h1 style='text-align:center; color:#00C2FF;'>🚦 TrafficAI System</h1>
-    <p style='text-align:center; color:gray;'>Real-time Vehicle Detection & Counting System</p>
+    <h1 style='text-align:center; color:#00C2FF;'>🚦TrafficAI</h1>
+    <p style='text-align:center; color:gray;'>Hệ thống phát hiện và đếm phương tiện thời gian thực</p>
     """, unsafe_allow_html=True)
 
 # UI style
