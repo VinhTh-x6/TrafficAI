@@ -102,25 +102,21 @@ def render_history_tab(load_logs_fn, pie_chart, bar_chart, line_chart, stacked_b
                 # Display charts
                 col3, col4 = st.columns(2)
                 with col3:
-                    st.markdown("### 🟠 Tỷ lệ phương tiện")
-                    st.plotly_chart(
-                        pie_chart(df),
-                        use_container_width=True,
-                        key=f"pie_{loc}_{idx}"
-                    )
-                with col4:
                     st.markdown("### 📊 Phân bố phương tiện")
-                    st.plotly_chart(
-                        bar_chart(df),
-                        use_container_width=True,
-                        key=f"bar_{loc}_{idx}"
-                    )
-                st.markdown("### 📈 Lưu lượng theo thời gian")
-                st.plotly_chart(
-                    line_chart(pd.DataFrame(history)),
-                    use_container_width=True,
-                    key=f"line_{loc}_{idx}"
-                )
+                    st.pyplot(bar_chart(df))
+                with col4:
+                    st.markdown("### 📈 Lưu lượng theo thời gian")
+                    df_line = pd.DataFrame(history)
+                    df_line["time"] = df_line["time"].astype(int)
+                    df_line = df_line.groupby("time")[[
+                        "car", "bus", "truck", "motorbike"
+                    ]].mean().reset_index()
+                    for col in ["car", "bus", "truck", "motorbike"]:
+                        df_line[col] = df_line[col].rolling(5, min_periods=1).mean()
+                    st.pyplot(line_chart(df_line))
+                st.markdown("### 🟠 Tỷ lệ phương tiện")
+                st.pyplot(pie_chart(df))
+                
         # Display stacked bar chart comparing sessions
         st.subheader(f"📊 So sánh các phiên ghi nhận")
         rows_all = []
@@ -137,4 +133,4 @@ def render_history_tab(load_logs_fn, pie_chart, bar_chart, line_chart, stacked_b
             df_stack = pd.DataFrame(rows_all)
             df_stack = df_stack.sort_values("time")
             df_stack["time_label"] = pd.to_datetime(df_stack["time"]).dt.strftime("%d/%m/%Y\n%H:%M")
-            st.plotly_chart(stacked_bar_chart(df_stack), use_container_width=True, key=f"stack_{loc}") 
+            st.pyplot(stacked_bar_chart(df_stack)) 

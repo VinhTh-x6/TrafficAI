@@ -129,19 +129,18 @@ with tab_run:
             df_line[col] = df_line[col].rolling(5, min_periods=1).mean()
 
         col_pie, col_bar = st.columns(2)
-        # pie chart
-        with col_pie:
-            st.subheader("🟠 Tỷ lệ phương tiện")
-            st.plotly_chart(pie_chart(df_final), use_container_width=True, key=f"pie_{time.time()}")
-
         # bar chart
-        with col_bar:
+        with col_pie:
             st.subheader("📊 Phân bố phương tiện")
-            st.plotly_chart(bar_chart(df_final), use_container_width=True, key=f"bar_{time.time()}")
-
+            st.pyplot(bar_chart(df))
         # line chart
-        st.subheader("📈 Lưu lượng theo thời gian")
-        st.plotly_chart(line_chart(df_line), use_container_width=True, key=f"line_{time.time()}")
+        with col_bar:
+            st.subheader("📈 Lưu lượng theo thời gian")
+            st.pyplot(line_chart(df_line))
+        # pie chart
+        st.subheader("🟠 Tỷ lệ phương tiện")
+        st.pyplot(pie_chart(df))
+    
 
 # History tab
 with tab_history:
