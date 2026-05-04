@@ -26,47 +26,25 @@ tab_run, tab_history = st.tabs(["🚀 Hệ thống", "📚 Xem lại"])
 # Run tab
 with tab_run:
     # input source
-    st.subheader("📡 Nguồn dữ liệu")
-    source_type = st.radio("Chọn nguồn", ["Tải video lên", "Camera điện thoại"])
-    video_file = None
-    camera_url = None
-    # set parameters based on source type
-    if source_type == "Tải video lên":
-        st.markdown("### 📁 Tải video lên")
-        count_mode = "region"
-        video_file = st.file_uploader("Chọn file", type=["mp4"])
-    elif source_type == "Camera điện thoại":
-        st.markdown("### 📱 Kết nối camera điện thoại")
-        count_mode = "Line"
-        camera_url = st.text_input("Nhập URL camera", "http://192.168.1.222:8080/video")
+    st.markdown("### 📁 Tải video lên")
+    video_file = st.file_uploader("Chọn file", type=["mp4"])
     location = st.selectbox("📍 Vị trí", LOCATIONS)
     datetime_input = st.datetime_input("📅 Thời gian", value=pd.Timestamp.now().to_pydatetime())
     run = st.button("🚀 Bắt đầu xử lý")
-    start_time = time.time()
     output_video_path = os.path.join(tempfile.gettempdir(), "output.mp4")
 
     # process video
     if run:
         # set parameters based on source type
-        total_frames = 1000
-        fps = 25
-        if source_type == "Tải video lên":
-            if not video_file:
-                st.warning("Vui lòng tải video lên để bắt đầu!")
-                st.stop()
-            tfile = tempfile.NamedTemporaryFile(delete=False)
-            tfile.write(video_file.read())
-            source = tfile.name
-            cap = cv2.VideoCapture(source)
-            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-            fps = cap.get(cv2.CAP_PROP_FPS)
-            source_type_run = "upload"
-            mode = "polygon"
-        else:
-            source = camera_url
-            source_type_run = "camera"
-            mode = "line"
-            region = None
+        if not video_file:
+            st.warning("Vui lòng tải video lên để bắt đầu!")
+            st.stop()
+        tfile = tempfile.NamedTemporaryFile(delete=False)
+        tfile.write(video_file.read())
+        source = tfile.name
+        cap = cv2.VideoCapture(source)
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps = cap.get(cv2.CAP_PROP_FPS)
 
         col_video, col_table = st.columns([2, 1])
         history = []
@@ -87,8 +65,7 @@ with tab_run:
             source=source,
             model_path=r"D:\TrafficAI\runs\detect\train\weights\best.pt",
             output_path=output_video_path,
-            source_type=source_type_run,
-            mode=mode,
+            mode="polygon",
             location=location
         )
         for frame, counts in generator:
@@ -113,21 +90,13 @@ with tab_run:
                 "motorbike": counts.get("motorbike", 0)
             })
             # update progress/status
-            if source_type == "Tải video lên":
-                percent = int((frame_id / total_frames) * 100)
-                progress_bar.progress(percent)
-                status_box.markdown(f"🚦 Đang xử lý... **{percent}%**")
-            else:
-                elapsed = time.time() - start_time
-                status_box.markdown(f"📡 Camera trực tiếp | ⏱ {elapsed:.1f}s")
+            percent = int((frame_id / total_frames) * 100)
+            progress_bar.progress(percent)
+            status_box.markdown(f"🚦 Đang xử lý... **{percent}%**")
 
         progress_container.empty()
         # final status update
-        if source_type == "Tải video lên":
-            status_box.markdown("✅ Hoàn thành")
-        else:
-            elapsed = time.time() - start_time
-            status_box.markdown(f"📹 Camera trực tiếp | ⏱ Thời gian tổng: {elapsed:.2f}s")
+        status_box.markdown("✅ Hoàn thành")
         # save history and final counts to session state for visualization
         st.session_state.history = history
         st.session_state.final_counts = counts
