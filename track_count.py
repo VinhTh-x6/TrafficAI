@@ -3,7 +3,7 @@ from ultralytics import YOLO
 import numpy as np
 
 class VehicleCounter:
-    def __init__(self, model_path, mode="line", region_points=None):
+    def __init__(self, model_path, mode="polygon", region_points=None):
         self.model = YOLO(model_path)
         self.mode = mode
         self.region_points = region_points
@@ -14,10 +14,10 @@ class VehicleCounter:
             "truck": 0
         }
         self.colors = {
-            "motorbike": (0,191,255),
-            "car": (124,252,0),
-            "bus": (255,0,0),
-            "truck": (255,64,64)
+            "motorbike": (255,191,0),
+            "car": (0,205,102),
+            "bus": (14,173,238),
+            "truck": (64,64,255)
         }
         self.track_list = {}
         self.counted_ids = set()
@@ -32,7 +32,7 @@ class VehicleCounter:
             tracker="bytetrack.yaml",
             persist=True
         )
-        # vẽ line
+        # vẽ line nếu có
         if self.mode == "line":
             cv2.line(frame, (0, frame.shape[0] // 2), (frame.shape[1], frame.shape[0] // 2), (255, 255, 255), 1)
 
@@ -58,7 +58,7 @@ class VehicleCounter:
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 1)
             cv2.circle(frame, (cx, cy), 1, (191,62,255), -1)
             # tên class và ID của đối tượng
-            text = f"{label} ID:{id}"
+            text = f"#{id} {label}"
             (text_w, text_h), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1)
             cv2.rectangle(frame, (x1, y1 - text_h - 2), (x1 + text_w + 2, y1), color, -1)
             cv2.putText(frame, text, (x1 + 1, y1 - 1), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1, cv2.LINE_AA)
@@ -98,7 +98,7 @@ class VehicleCounter:
                 self.counted_ids.add(id)
 
 # generator function để xử lý video và trả về frame đã vẽ bounding box cùng với số lượng xe đếm được
-def tracking_counting(source, model_path, output_path="output.mp4", source_type="camera", mode="line", region_points=None):
+def tracking_counting(source, model_path, output_path="output.mp4", mode="polygon", region_points=None, location=None):
     # mở video hoặc camera
     cap = cv2.VideoCapture(source)
     assert cap.isOpened(), "Cannot open source"
@@ -108,33 +108,27 @@ def tracking_counting(source, model_path, output_path="output.mp4", source_type=
     w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = cap.get(cv2.CAP_PROP_FPS)
-    if source_type == "camera":
-        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        w, h = 640, 360
+    if fps == 0 or fps is None:
         fps = 25
-    else:
-        if fps == 0 or fps is None:
-            fps = 25
-
-        # định nghĩa vùng polygon nếu chạy với video upload
+    # định nghĩa vùng polygon nếu chạy với video upload
+    if location == "Cầu Giấy - Trần Quý Kiên - C167.10-PTZ":
         region_points = np.array([[168, 82], [403, 93], [426, 159], [86, 143]], dtype=np.int32).reshape((-1, 1, 2))
-        # 2 np.array([[168, 82], [403, 93], [426, 159], [86, 143]], 1 np.array([[56, 134], [440, 219], [440, 138], [178, 87]]
-        counter.region_points = region_points
+    elif location == "Cầu Giấy - Trần Đăng Ninh - C166.10-PTZ":
+        region_points = np.array([[56, 134], [440, 219], [440, 138], [178, 87]], dtype=np.int32).reshape((-1, 1, 2))
+    counter.region_points = region_points
     # tạo video writer để lưu video output
-    out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
+    out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'H264'), fps, (w, h))
 
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             break
         # resize frame nếu là camera để tăng tốc độ xử lý
-        if source_type == "camera":
-            frame = cv2.resize(frame, (w, h))
         frame = counter.process_frame(frame)
         out.write(frame)
         # trả về frame đã vẽ bounding box và số lượng xe đếm được để cập nhật UI
         yield frame, counter.class_counts
-
+    # giải phóng tài nguyên
     cap.release()
     out.release()
 
