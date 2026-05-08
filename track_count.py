@@ -59,9 +59,9 @@ class VehicleCounter:
             cv2.circle(frame, (cx, cy), 1, (191,62,255), -1)
             # tên class và ID của đối tượng
             text = f"#{id} {label}"
-            (text_w, text_h), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1)
+            (text_w, text_h), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.35, 1)
             cv2.rectangle(frame, (x1, y1 - text_h - 2), (x1 + text_w + 2, y1), color, -1)
-            cv2.putText(frame, text, (x1 + 1, y1 - 1), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1, cv2.LINE_AA)
+            cv2.putText(frame, text, (x1 + 1, y1 - 1), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 255), 1, cv2.LINE_AA)
 
         # vẽ vùng polygon nếu có
         if self.mode == "polygon" and self.region_points is not None:
@@ -99,7 +99,7 @@ class VehicleCounter:
 
 # generator function để xử lý video và trả về frame đã vẽ bounding box cùng với số lượng xe đếm được
 def tracking_counting(source, model_path, output_path="output.mp4", mode="polygon", region_points=None, location=None):
-    # mở video hoặc camera
+    # mở video 
     cap = cv2.VideoCapture(source)
     assert cap.isOpened(), "Cannot open source"
 
@@ -114,16 +114,17 @@ def tracking_counting(source, model_path, output_path="output.mp4", mode="polygo
     if location == "Cầu Giấy - Trần Quý Kiên - C167.10-PTZ":
         region_points = np.array([[168, 82], [403, 93], [426, 159], [86, 143]], dtype=np.int32).reshape((-1, 1, 2))
     elif location == "Cầu Giấy - Trần Đăng Ninh - C166.10-PTZ":
-        region_points = np.array([[56, 134], [440, 219], [440, 138], [178, 87]], dtype=np.int32).reshape((-1, 1, 2))
+        region_points = np.array([[234, 90], [432, 141], [420, 199], [128, 117]], dtype=np.int32).reshape((-1, 1, 2))
     counter.region_points = region_points
     # tạo video writer để lưu video output
-    out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'H264'), fps, (w, h))
+    out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'H264'), fps, ((452, 256)))
 
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             break
-        # resize frame nếu là camera để tăng tốc độ xử lý
+        # resize frame tương ứng cho region_points
+        frame = cv2.resize(frame, (452, 256))
         frame = counter.process_frame(frame)
         out.write(frame)
         # trả về frame đã vẽ bounding box và số lượng xe đếm được để cập nhật UI
