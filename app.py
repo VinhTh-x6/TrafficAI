@@ -4,7 +4,6 @@ import cv2
 import pandas as pd
 import os
 import plotly.io as pio
-import time
 from layout import *
 from track_count import tracking_counting
 from charts import *
@@ -128,20 +127,19 @@ with tab_run:
         for col in ["car", "bus", "truck", "motorbike"]:
             df_line[col] = df_line[col].rolling(5, min_periods=1).mean()
 
-        col_pie, col_bar = st.columns(2)
+        col_bar, col_line = st.columns(2)
         # bar chart
-        with col_pie:
-            st.subheader("📊 Phân bố phương tiện")
-            st.pyplot(bar_chart(df))
-        # line chart
         with col_bar:
+            st.subheader("📊 Phân bố phương tiện")
+            st.pyplot(bar_chart(df_final))
+        # line chart
+        with col_line:
             st.subheader("📈 Lưu lượng theo thời gian")
             st.pyplot(line_chart(df_line))
-        # pie chart
-        st.subheader("🟠 Tỷ lệ phương tiện")
-        st.pyplot(pie_chart(df))
+        st.markdown("### 🔥 Mật độ theo thời gian")
+        df_heat = prepare_heatmap_data(df_line)
+        st.pyplot(heatmap_chart(df_heat))
     
-
 # History tab
 with tab_history:
-    render_history_tab(load_logs, pie_chart, bar_chart, line_chart, stacked_bar_chart)
+    render_history_tab(load_logs, prepare_heatmap_data, bar_chart, line_chart, heatmap_chart, stacked_bar_chart)

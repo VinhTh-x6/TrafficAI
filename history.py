@@ -8,7 +8,7 @@ import os
 DB_PATH = "traffic.db"
 LOCATIONS = [
     "Cầu Giấy - Trần Quý Kiên - C167.10-PTZ",
-    "Cầu Giấy - Trần Đăng Ninh - C166.10.PTZ"
+    "Cầu Giấy - Trần Đăng Ninh - C166.10-PTZ"
 ]
 
 # Initialize the database
@@ -45,7 +45,17 @@ def save_log(location, time_input, video, counts, history):
     conn.commit()
     conn.close()
 
+# Load json 
+@st.cache_data
+def parse_json(x):
+    return json.loads(x)
+
+# Filter location
+def filter_location(rows, loc):
+    return [r for r in rows if r[0] == loc]
+
 # Load logs from database
+@st.cache_data
 def load_logs():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -55,22 +65,23 @@ def load_logs():
     return rows
 
 # Render the history tab
-def render_history_tab(load_logs_fn, pie_chart, bar_chart, line_chart, stacked_bar_chart):
+def render_history_tab(load_logs_fn, prepare_heatmap_data, bar_chart, line_chart, heatmap_chart, stacked_bar_chart):
     rows = load_logs_fn()
     if not rows:
         st.info("Chưa có dữ liệu lịch sử nào!")
         return
     # Selected location & date
     locations = sorted(list(set([r[0] for r in rows])))
-    selected_loc = st.selectbox("📍 Vị trí", locations)
-    rows = [r for r in rows if r[0] == selected_loc]
-    dates = sorted(list(set([pd.to_datetime(r[1]).date() for r in rows])))
+    selected_loc = st.selectbox("📍 Vị trí", locations, key="history_location_select")
+    rows = filter_location(tuple(rows), selected_loc)
+    dates = sorted({pd.to_datetime(r[1]).date() for r in rows})
     selected_date = st.date_input(
         "📅 Thời gian",
         value=dates[-1],
         min_value=dates[0],
         max_value=dates[-1],
-        format="DD/MM/YYYY"
+        format="DD/MM/YYYY",
+        key="history_date_select"
     )
     rows_day = [r for r in rows if pd.to_datetime(r[1]).date() == selected_date]
     grouped = {}
@@ -81,8 +92,8 @@ def render_history_tab(load_logs_fn, pie_chart, bar_chart, line_chart, stacked_b
         sessions = sorted(sessions, reverse=True)
         # Display each session with video, table, and charts
         for idx, (t, video, counts, history) in enumerate(sessions):
-            counts = json.loads(counts)
-            history = json.loads(history)
+            counts = parse_json(counts)
+            history = parse_json(history)
             df = pd.DataFrame({
                 "Vehicle Type": list(counts.keys()),
                 "Count": list(counts.values())
@@ -114,14 +125,15 @@ def render_history_tab(load_logs_fn, pie_chart, bar_chart, line_chart, stacked_b
                     for col in ["car", "bus", "truck", "motorbike"]:
                         df_line[col] = df_line[col].rolling(5, min_periods=1).mean()
                     st.pyplot(line_chart(df_line))
-                st.markdown("### 🟠 Tỷ lệ phương tiện")
-                st.pyplot(pie_chart(df))
+                st.markdown("### 🔥 Mật độ theo thời gian")
+                df_heat = prepare_heatmap_data(df_line)
+                st.pyplot(heatmap_chart(df_heat))
                 
         # Display stacked bar chart comparing sessions
         st.subheader(f"📊 So sánh các phiên ghi nhận")
         rows_all = []
         for loc, t, video, counts, history in rows:
-            counts = json.loads(counts)
+            counts = parse_json(counts)
             rows_all.append({
                 "time": t,
                 "car": counts.get("car", 0),

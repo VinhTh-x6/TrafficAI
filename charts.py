@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
+import pandas as pd
+import numpy as np
 
 # theme
 BG = "#0f172a"
@@ -7,7 +9,6 @@ PANEL = "#111827"
 GRID = "#334155"
 TEXT = "#e5e7eb"
 SUBTLE = "#94a3b8"
-
 COLORS = {
     "car": "#22c55e",
     "bus": "#f59e0b",
@@ -15,9 +16,10 @@ COLORS = {
     "motorbike": "#38bdf8"
 }
 
+# style
 def create_ax(figsize=(7, 4)):
     sns.set_theme(style="white")
-    fig, ax = plt.subplots(figsize=figsize, dpi=120)
+    fig, ax = plt.subplots(figsize=figsize, dpi=200)
     fig.patch.set_facecolor(BG)
     ax.set_facecolor(PANEL)
     ax.grid(axis="y", color=GRID, alpha=0.16, linewidth=0.8)
@@ -31,40 +33,76 @@ def create_ax(figsize=(7, 4)):
     ax.yaxis.label.set_color(TEXT)
     return fig, ax
 
-# pie
-def pie_chart(df):
-    fig, ax = create_ax((2, 1))
-    labels = df["Vehicle Type"]
-    values = df["Count"]
-    colors = [COLORS[x.lower()] for x in labels]
-    wedges, _, autotexts = ax.pie(
-        values,
-        startangle=90,
-        colors=colors,
-        autopct=lambda p: f"{p:.0f}%",
-        pctdistance=0.72,
-        radius=0.85,
-        center=(-0.22, 0),
-        wedgeprops=dict(
-            width=0.40,
-            edgecolor=PANEL,
-            linewidth=2.2
-        )
+# heatmap data
+def prepare_heatmap_data(df, n_bins=10):
+    df_heat = df.copy()
+    if len(df_heat) <= 1:
+        return df_heat
+    n_bins = min(n_bins, len(df_heat))
+    bins = np.linspace(
+        df_heat["time"].min(),
+        df_heat["time"].max(),
+        n_bins + 1
     )
-    for t in autotexts:
-        t.set_color("white")
-        t.set_fontsize(8)
-        t.set_fontweight("bold")
-    ax.legend(
-        labels,
-        loc="center left",
-        bbox_to_anchor=(0.88, 0.5),
-        frameon=False,
-        labelcolor=SUBTLE,
-        fontsize=6
+    df_heat["bucket"] = pd.cut(
+        df_heat["time"],
+        bins=bins,
+        include_lowest=True,
+        labels=False
     )
-    ax.set_aspect("equal")
-    fig.tight_layout(pad=0.8)
+    df_heat = (
+        df_heat.groupby("bucket")[["time", "car", "bus", "truck", "motorbike"]]
+        .mean()
+        .reset_index(drop=True)
+    )
+    df_heat["time"] = (
+        df_heat["time"]
+        .round()
+        .astype(int)
+        .astype(str) + "s"
+    )
+    return df_heat
+
+# heatmap
+def heatmap_chart(df):
+    fig, ax = create_ax((4, 2))
+    heat_df = (
+        df.set_index("time")[["car", "bus", "truck", "motorbike"]]
+        .T
+    )
+    sns.heatmap(
+        heat_df,
+        ax=ax,
+        cmap="YlGnBu",
+        square=True,      
+        linewidths=0.6,    
+        linecolor=BG,
+        cbar_kws={
+            "pad": 0.15,
+            "fraction": 0.03,
+            "shrink": 0.6       
+        }
+    )
+    cbar = ax.collections[0].colorbar
+    cbar.ax.tick_params(labelsize=5, colors=SUBTLE)
+    ax.set_xlabel("Thời gian", fontsize=6, color=TEXT, labelpad=2)
+    ax.set_ylabel("")
+    ax.set_yticklabels(
+        ["Car", "Bus", "Truck", "Motorbike"],
+        rotation=0,
+        fontsize=5,        
+        color=SUBTLE
+    )
+    # ax.set_xticks(range(len(heat_df.columns)))
+    ax.set_xticklabels(
+        [str(x) for x in heat_df.columns],
+        rotation=0,
+        fontsize=5,        
+        color=SUBTLE
+    )
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    fig.tight_layout(pad=0.3)  
     return fig
 
 # line
@@ -78,8 +116,8 @@ def line_chart(df):
             label=vehicle.capitalize(),
             color=COLORS[vehicle]
         )
-    ax.set_xlabel("Thời gian", fontsize=25)
-    ax.set_ylabel("Số phương tiện", fontsize=25)
+    ax.set_xlabel("Thời gian", fontsize=26)
+    ax.set_ylabel("Số phương tiện", fontsize=26)
     ax.legend(
         loc="center left",
         bbox_to_anchor=(1.02, 0.5),
@@ -116,7 +154,7 @@ def bar_chart(df):
         )
     ax.grid(axis="y", color=GRID, alpha=0.16, linewidth=5)
     ax.set_xlim(0, max_count * 1.12)
-    ax.set_xlabel("Số phương tiện", fontsize=25)
+    ax.set_xlabel("Số phương tiện", fontsize=26)
     ax.set_ylabel("")
     ax.tick_params(labelsize=25)
     fig.tight_layout(pad=1.4)
@@ -124,7 +162,7 @@ def bar_chart(df):
 
 # stacked bar
 def stacked_bar_chart(df):
-    fig, ax = create_ax((5, 2.5))
+    fig, ax = create_ax((max(6, len(df) * 0.6), 2.5))
     x = df["time_label"]
     bottom = [0] * len(df)
     for vehicle in ["car", "bus", "truck", "motorbike"]:
@@ -138,6 +176,17 @@ def stacked_bar_chart(df):
             linewidth=0.4
         )
         bottom = [b + v for b, v in zip(bottom, df[vehicle])]
+    totals = df[["car", "bus", "truck", "motorbike"]].sum(axis=1)
+    for i, total in enumerate(totals):
+        ax.text(
+            i,
+            total + 2,  
+            str(int(total)),
+            ha="center",
+            va="bottom",
+            fontsize=6,
+            color=TEXT
+        )
     ax.set_xlabel("Thời gian", fontsize=7)
     ax.set_ylabel("Số phương tiện", fontsize=7)
     ax.legend(
