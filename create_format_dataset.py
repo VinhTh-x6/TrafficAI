@@ -2,6 +2,7 @@ import os
 import random
 import shutil
 
+# Lấy file image, label
 def get_files(img_dir, lbl_dir):
     data = []
     for f in os.listdir(img_dir):
@@ -12,6 +13,7 @@ def get_files(img_dir, lbl_dir):
                 data.append((img, lbl))
     return data
 
+# Dữ liệu có tỉ lệ train, val 80:20
 def split(data):
     random.shuffle(data)
     n = len(data)
@@ -24,6 +26,7 @@ if __name__ == '__main__':
     night = get_files("data/nighttime-dataset/nighttime/images",
                       "data/nighttime-dataset/nighttime/labels")
 
+    # Tạo train, val và cân bằng dữ liệu
     night = random.sample(night, len(day))
     day_train, day_val = split(day)
     night_train, night_val = split(night)
@@ -32,6 +35,7 @@ if __name__ == '__main__':
     random.shuffle(train)
     random.shuffle(val)
 
+    # Copy sang folder chuẩn
     for s in ["train", "val"]:
         os.makedirs(f"vehicles_dataset/images/{s}", exist_ok=True)
         os.makedirs(f"vehicles_dataset/labels/{s}", exist_ok=True)
@@ -39,7 +43,8 @@ if __name__ == '__main__':
         for img, lbl in data:
             shutil.copy(img, f"vehicles_dataset/images/{split_name}")
             shutil.copy(lbl, f"vehicles_dataset/labels/{split_name}")
-
+            
+    # Chuẩn hoá dữ liệu về cùng label
     for root, _, files in os.walk("vehicles_dataset/labels"):
         for f in files:
             if f.endswith(".txt"):

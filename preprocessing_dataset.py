@@ -7,9 +7,11 @@ if __name__ == '__main__':
     img_dir = os.path.join(root, "images")
     txt_dir = os.path.join(root, "labels")
 
+    # Tạo thư mục mới
     os.makedirs(img_dir, exist_ok=True)
     os.makedirs(txt_dir, exist_ok=True)
 
+    # Lọc ra image/label của nighttime và daytime 
     for file in os.listdir(root):
         path = os.path.join(root, file)
         if not os.path.isfile(path):
