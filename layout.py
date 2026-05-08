@@ -15,13 +15,6 @@ def render_ui_style():
         padding-top: 3rem;
         padding-bottom: 1rem;
     }
-    /* Plotly */
-    div[data-testid="stPlotlyChart"] {
-        background: #111827;
-        border-radius: 14px;
-        padding: 10px;
-        box-shadow: 0px 6px 25px rgba(0,0,0,0.5);
-    }
     /* Image */
     div[data-testid="stImage"] {
         border-radius: 16px;
