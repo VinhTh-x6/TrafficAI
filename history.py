@@ -45,17 +45,7 @@ def save_log(location, time_input, video, counts, history):
     conn.commit()
     conn.close()
 
-# Load json 
-@st.cache_data
-def parse_json(x):
-    return json.loads(x)
-
-# Filter location
-def filter_location(rows, loc):
-    return [r for r in rows if r[0] == loc]
-
 # Load logs from database
-@st.cache_data
 def load_logs():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -73,8 +63,8 @@ def render_history_tab(load_logs_fn, prepare_heatmap_data, bar_chart, line_chart
     # Selected location & date
     locations = sorted(list(set([r[0] for r in rows])))
     selected_loc = st.selectbox("📍 Vị trí", locations, key="history_location_select")
-    rows = filter_location(tuple(rows), selected_loc)
-    dates = sorted({pd.to_datetime(r[1]).date() for r in rows})
+    rows = [r for r in rows if r[0] == selected_loc]
+    dates = sorted(list(set([pd.to_datetime(r[1]).date() for r in rows])))
     selected_date = st.date_input(
         "📅 Thời gian",
         value=dates[-1],
@@ -92,8 +82,8 @@ def render_history_tab(load_logs_fn, prepare_heatmap_data, bar_chart, line_chart
         sessions = sorted(sessions, reverse=True)
         # Display each session with video, table, and charts
         for idx, (t, video, counts, history) in enumerate(sessions):
-            counts = parse_json(counts)
-            history = parse_json(history)
+            counts = json.loads(counts)
+            history = json.loads(history)
             df = pd.DataFrame({
                 "Vehicle Type": list(counts.keys()),
                 "Count": list(counts.values())
@@ -133,7 +123,7 @@ def render_history_tab(load_logs_fn, prepare_heatmap_data, bar_chart, line_chart
         st.subheader(f"📊 So sánh các phiên ghi nhận")
         rows_all = []
         for loc, t, video, counts, history in rows:
-            counts = parse_json(counts)
+            counts = json.loads(counts)
             rows_all.append({
                 "time": t,
                 "car": counts.get("car", 0),
@@ -145,4 +135,4 @@ def render_history_tab(load_logs_fn, prepare_heatmap_data, bar_chart, line_chart
             df_stack = pd.DataFrame(rows_all)
             df_stack = df_stack.sort_values("time")
             df_stack["time_label"] = pd.to_datetime(df_stack["time"]).dt.strftime("%d/%m/%Y\n%H:%M")
-            st.pyplot(stacked_bar_chart(df_stack)) 
+            st.pyplot(stacked_bar_chart(df_stack))  

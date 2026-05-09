@@ -30,7 +30,11 @@ with tab_run:
     location = st.selectbox("📍 Vị trí", LOCATIONS)
     datetime_input = st.datetime_input("📅 Thời gian", value=pd.Timestamp.now().to_pydatetime())
     run = st.button("🚀 Bắt đầu xử lý")
-    output_video_path = os.path.join(tempfile.gettempdir(), "output.mp4")
+    timestamp = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
+    output_video_path = os.path.join(
+        tempfile.gettempdir(),
+        f"traffic_{timestamp}.mp4"
+    )
 
     # process video
     if run:
