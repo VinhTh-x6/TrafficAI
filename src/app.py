@@ -66,7 +66,7 @@ with tab_run:
         # run tracking and counting
         generator = tracking_counting(
             source=source,
-            model_path=r"D:\TrafficAI\models\best.pt",
+            model_path=r"models/best.pt",
             output_path=output_video_path,
             mode="polygon",
             location=location

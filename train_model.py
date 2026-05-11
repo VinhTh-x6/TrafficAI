@@ -2,7 +2,7 @@ from ultralytics import YOLO
 
 def train_model(resume=False):
     if resume:
-        model = YOLO(r"D:\TrafficAI\runs\detect\train\weights\last.pt")
+        model = YOLO(r"models/last.pt")
         model.train(resume=True)
     else:
         model = YOLO("yolov8s.pt")
