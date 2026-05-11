@@ -12,5 +12,8 @@
 - Thiết lập các file theo cấu trúc:
 
 ## Training
-
+- Sử dụng ***NVIDIA GeForce RTX 4060 Laptop GPU*** để huấn luận mô hình trên 1 bộ dữ liệu mới về phương tiện giao thông ở Việt Nam và được kết quả như sau:   
+![results](D:\TrafficAI\runs\detect\train\results.png)
 ## Kết quả
+- Hệ thống được triển khai demo trên giao diện người dùng ***Streamlit*** ứng dụng cho 1 tuyến đường cụ thể sử dụng video giao thông có sẵn.
+- Dưới đây là 1 số kết quả demo trên 2 tuyến đường:  
