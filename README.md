@@ -5,13 +5,9 @@
 ![OpenCV](https://img.shields.io/badge/OpenCV-Computer%20Vision-green)
 ![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-red)
 ![License](https://img.shields.io/badge/License-MIT-lightgrey)
-
 ---
-
 ![TrafficAI Demo](demo/demo_test.gif)
-
----
-
+--
 ## ✨ Tính năng
 
 - Phát hiện phương tiện giao thông theo thời gian thực
@@ -20,18 +16,14 @@
 - Hiển thị kết quả trực quan bằng Streamlit dashboard
 - Hỗ trợ nhiều loại phương tiện: ô tô, xe máy, xe buýt, xe tải
 
----
-
 ## 📂 Dataset
 
 - Dataset phương tiện Việt Nam từ Kaggle  
 📎
 https://www.kaggle.com/datasets/duongtran1909/vietnamese-vehicles-dataset
 - Video giao thông thực tế tại Việt Nam  
-- Một số nguồn dữ liệu công khai trên Internet  
-
----
-
+- Một số nguồn dữ liệu công khai trên Internet
+- 
 ## ⚙️ Cài đặt
 
 ```bash
@@ -40,15 +32,11 @@ cd <project-folder>
 pip install -r requirements.txt
 ```
 
----
-
 ## ▶️ Chạy ứng dụng
 
 ```bash
 streamlit run ./src/app.py
 ```
-
----
 
 ## 🧠 Huấn luyện mô hình
 
@@ -56,44 +44,31 @@ streamlit run ./src/app.py
 - GPU: NVIDIA RTX 4060 Laptop GPU
 - Dataset: bộ dữ liệu phương tiện giao thông Việt Nam  
 
-*Kết quả sau khi huấn luyện:*
-![training-results](demo/results.png)
-
----
+*Kết quả sau khi huấn luyện:*  
+![training-results](demo/results.png)  
 
 *Test trên video thực:*
 ![test1-results](demo/test1.png)
 ![test2-results](demo/test2.png)
 ![test3-results](demo/test3.png)
 
----
 
 ## 🎯 Demo trên Streamlit
 
 *Hệ thống xử lí chính:*
 ![demo1](demo/demo1.png)
 
----
-
 *Xem lại lịch sử ghi nhận:*
 ![demo2](demo/demo2.png)
-
----
 
 *Video xem lại:*
 ![demo3](demo/demo3.png)
 
----
-
 *Biểu đồ thống kê trên một phiên:*
 ![demo4](demo/demo4.png)
 
----
-
 *Biểu đồ so sánh giữa các phiên trên mỗi tuyến đường:*
 ![demo5](demo/demo5.png)
-
----
 
 ## 🛠️ Công nghệ sử dụng
 
