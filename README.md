@@ -1,19 +1,93 @@
-# TrafficAI: Hệ thống phát hiện và đếm số lượng phương tiện lưu thông trong giao thông ở Việt Nam
-## Giới thiệu
-- Project sử dụng ***Computer Vision*** và ***Deep Learning*** để phát hiện, theo dõi và đếm số lượng phương tiện giao thông theo thời gian thực từ video hoặc camera.
+# 🚦 TrafficAI: Hệ thống phát hiện, theo dõi và đếm phương tiện lưu thông trong giao thông ở Việt Nam
 
-- Hệ thống được xây dựng dựa trên mô hình phát hiện đối tượng ***YOLOv8 (Ultralytics)*** kết hợp với thuật toán tracking ***ByteTrack***, cho phép nhận diện chính xác các phương tiện như ô tô, xe máy, xe buýt, xe tải và theo dõi chuyển động của chúng xuyên suốt các khung hình.
-## Dataset
-- Dataset từ Kaggle.
-- Video/camera giao thông tại Việt Nam.
-- Các nguồn dữ liệu giao thông VN uy tín trên internet.
-## Cài đặt
-- Download Dataset: https://www.kaggle.com/datasets/duongtran1909/vietnamese-vehicles-dataset
-- Thiết lập các file theo cấu trúc:
+![Python](https://img.shields.io/badge/Python-3.x-blue)
+![YOLOv8](https://img.shields.io/badge/YOLOv8-Ultralytics-orange)
+![OpenCV](https://img.shields.io/badge/OpenCV-Computer%20Vision-green)
+![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-red)
+![License](https://img.shields.io/badge/License-MIT-lightgrey)
 
-## Training
-- Sử dụng ***NVIDIA GeForce RTX 4060 Laptop GPU*** để huấn luận mô hình trên 1 bộ dữ liệu mới về phương tiện giao thông ở Việt Nam và được kết quả như sau:   
-![results](D:\TrafficAI\runs\detect\train\results.png)
-## Kết quả
-- Hệ thống được triển khai demo trên giao diện người dùng ***Streamlit*** ứng dụng cho 1 tuyến đường cụ thể sử dụng video giao thông có sẵn.
-- Dưới đây là 1 số kết quả demo trên 2 tuyến đường:  
+---
+
+![demo](demo/demo1.gif)
+
+---
+
+## ✨ Tính năng
+
+- Phát hiện phương tiện giao thông theo thời gian thực
+- Theo dõi đối tượng bằng ByteTrack
+- Đếm số lượng phương tiện theo luồng giao thông
+- Hiển thị kết quả trực quan bằng Streamlit dashboard
+- Hỗ trợ nhiều loại phương tiện: ô tô, xe máy, xe buýt, xe tải
+
+---
+
+## 📂 Dataset
+
+- Dataset phương tiện Việt Nam từ Kaggle  
+📎
+https://www.kaggle.com/datasets/duongtran1909/vietnamese-vehicles-dataset
+- Video giao thông thực tế tại Việt Nam  
+- Một số nguồn dữ liệu công khai trên Internet  
+
+---
+
+## ⚙️ Cài đặt
+
+```bash
+git clone <repository-link>
+cd <project-folder>
+pip install -r requirements.txt
+```
+
+---
+
+## ▶️ Chạy ứng dụng
+
+```bash
+streamlit run ./src/app.py
+```
+
+---
+
+## 🧠 Huấn luyện mô hình
+
+- Framework: YOLOv8 (Ultralytics)
+- GPU: NVIDIA RTX 4060 Laptop GPU
+- Dataset: bộ dữ liệu phương tiện giao thông Việt Nam  
+
+Kết quả sau khi huấn luyện:
+![training-results](demo/results.png)
+
+Test trên video thực:
+![test1-results](demo/test1.png)
+![test2-results](demo/test2.png)
+
+---
+
+## 📊 Kết quả trên Streamlit
+
+![demo1](demo/demo1.gif)
+
+![demo2](demo/demo2.gif)
+
+---
+
+## 🛠️ Công nghệ sử dụng
+
+### 🤖 AI / Computer Vision
+- YOLOv8 (Ultralytics)
+- ByteTrack
+- OpenCV
+
+### 📊 Data Processing
+- Pandas
+- NumPy
+
+### 📈 Visualization
+- Plotly
+- Matplotlib
+- Seaborn
+
+### 🌐 Web App
+- Streamlit
