@@ -67,14 +67,19 @@ Test trên video thực:
 
 ## 📊 Kết quả trên Streamlit
 
+*Hệ thống xử lí chính:*
 ![demo1](demo/demo1.png)
 
+*Xem lại lịch sử ghi nhận:*
 ![demo2](demo/demo2.png)
 
+*Video xem lại:*
 ![demo3](demo/demo3.png)
 
+*Biểu đồ thống kê trên một phiên:*
 ![demo4](demo/demo4.png)
 
+*Biểu đồ tổng quát giữa các phiên trên mỗi tuyến đường:*
 ![demo5](demo/demo5.png)
 
 ---
