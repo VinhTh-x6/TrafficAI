@@ -8,7 +8,9 @@
 
 ---
 
-![demo](demo/demo1.gif)
+<video width="800" controls>
+  <source src="demo/demo_test.mp4" type="video/mp4">
+</video>
 
 ---
 
@@ -56,30 +58,40 @@ streamlit run ./src/app.py
 - GPU: NVIDIA RTX 4060 Laptop GPU
 - Dataset: bộ dữ liệu phương tiện giao thông Việt Nam  
 
-Kết quả sau khi huấn luyện:
+*Kết quả sau khi huấn luyện:*
 ![training-results](demo/results.png)
 
-Test trên video thực:
+---
+
+*Test trên video thực:*
 ![test1-results](demo/test1.png)
 ![test2-results](demo/test2.png)
 
 ---
 
-## 📊 Kết quả trên Streamlit
+## 🎯 Demo trên Streamlit
 
 *Hệ thống xử lí chính:*
 ![demo1](demo/demo1.png)
 
+---
+
 *Xem lại lịch sử ghi nhận:*
 ![demo2](demo/demo2.png)
+
+---
 
 *Video xem lại:*
 ![demo3](demo/demo3.png)
 
+---
+
 *Biểu đồ thống kê trên một phiên:*
 ![demo4](demo/demo4.png)
 
-*Biểu đồ tổng quát giữa các phiên trên mỗi tuyến đường:*
+---
+
+*Biểu đồ so sánh giữa các phiên trên mỗi tuyến đường:*
 ![demo5](demo/demo5.png)
 
 ---
