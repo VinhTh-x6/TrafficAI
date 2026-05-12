@@ -66,6 +66,7 @@ streamlit run ./src/app.py
 *Test trên video thực:*
 ![test1-results](demo/test1.png)
 ![test2-results](demo/test2.png)
+![test3-results](demo/test3.png)
 
 ---
 
