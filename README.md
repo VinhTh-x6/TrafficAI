@@ -67,9 +67,15 @@ Test trên video thực:
 
 ## 📊 Kết quả trên Streamlit
 
-![demo1](demo/demo1.gif)
+![demo1](demo/demo1.png)
 
-![demo2](demo/demo2.gif)
+![demo2](demo/demo2.png)
+
+![demo3](demo/demo3.png)
+
+![demo4](demo/demo4.png)
+
+![demo5](demo/demo5.png)
 
 ---
 
