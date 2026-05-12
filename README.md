@@ -8,9 +8,7 @@
 
 ---
 
-<video width="800" controls>
-  <source src="demo/demo_test.mp4" type="video/mp4">
-</video>
+![TrafficAI Demo](demo/demo_test.gif)
 
 ---
 
