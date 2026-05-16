@@ -62,17 +62,20 @@ def render_history_tab(load_logs_fn, prepare_heatmap_data, bar_chart, line_chart
         return
     # Selected location & date
     locations = sorted(list(set([r[0] for r in rows])))
-    selected_loc = st.selectbox("📍 Vị trí", locations, key="history_location_select")
+    col_info1, col_info2 = st.columns(2)
+    with col_info1:
+        selected_loc = st.selectbox("📍 Vị trí", locations, key="history_location_select")
     rows = [r for r in rows if r[0] == selected_loc]
     dates = sorted(list(set([pd.to_datetime(r[1]).date() for r in rows])))
-    selected_date = st.date_input(
-        "📅 Thời gian",
-        value=dates[-1],
-        min_value=dates[0],
-        max_value=dates[-1],
-        format="DD/MM/YYYY",
-        key="history_date_select"
-    )
+    with col_info2:
+        selected_date = st.date_input(
+            "📅 Thời gian",
+            value=dates[-1],
+            min_value=dates[0],
+            max_value=dates[-1],
+            format="DD/MM/YYYY",
+            key="history_date_select"
+        )
     rows_day = [r for r in rows if pd.to_datetime(r[1]).date() == selected_date]
     grouped = {}
     for loc, t, video, counts, history in rows_day:

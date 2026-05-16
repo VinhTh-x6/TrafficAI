@@ -27,8 +27,28 @@ with tab_run:
     # input source
     st.markdown("### 📁 Tải video lên")
     video_file = st.file_uploader("Chọn file", type=["mp4"])
-    location = st.selectbox("📍 Vị trí", LOCATIONS)
-    datetime_input = st.datetime_input("📅 Thời gian", value=pd.Timestamp.now().to_pydatetime())
+    col_info1, col_info2 = st.columns(2)
+    with col_info1:
+        location = st.selectbox("📍 Vị trí", LOCATIONS)
+    with col_info2:
+        datetime_input = st.datetime_input("📅 Thời gian", value=pd.Timestamp.now().to_pydatetime())
+    # option 
+    st.markdown("### ⚙️ Cài đặt")
+    col_setting1, col_setting2, col_setting3 = st.columns(3)
+    with col_setting1:
+        mode = st.radio(
+            "📐 Chế độ đếm",
+            ["Polygon", "Line"],
+            horizontal=True
+        )
+    with col_setting2:
+        conf = st.slider("🎯 Độ tin cậy phát hiện", 0.1, 1.0, 0.25, 0.05, 
+                         help="Conf thấp: detect nhiều hơn nhưng dễ sai.\n Conf cao: detect sạch hơn nhưng dễ bỏ sót.")
+    with col_setting3:
+        if mode == "Polygon":
+            show_region = st.checkbox("Hiển thị Polygon", True)
+        else:
+            show_region = st.checkbox("Hiển thị Line", True)
     run = st.button("🚀 Bắt đầu xử lý")
     timestamp = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
     output_video_path = os.path.join(
@@ -68,8 +88,10 @@ with tab_run:
             source=source,
             model_path=r"models/best.pt",
             output_path=output_video_path,
-            mode="polygon",
-            location=location
+            mode=mode.lower(),
+            location=location,
+            conf=conf,
+            show_region=show_region
         )
         for frame, counts in generator:
             frame_id += 1
