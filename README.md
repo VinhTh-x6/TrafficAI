@@ -7,7 +7,7 @@
 ![License](https://img.shields.io/badge/License-MIT-lightgrey)
 ---
 ![TrafficAI Demo](demo/demo_test.gif)
---
+---
 ## ✨ Tính năng
 
 - Phát hiện phương tiện giao thông theo thời gian thực
@@ -23,7 +23,7 @@
 https://www.kaggle.com/datasets/duongtran1909/vietnamese-vehicles-dataset
 - Video giao thông thực tế tại Việt Nam  
 - Một số nguồn dữ liệu công khai trên Internet
-- 
+
 ## ⚙️ Cài đặt
 
 ```bash
@@ -61,13 +61,13 @@ streamlit run ./src/app.py
 *Xem lại lịch sử ghi nhận:*
 ![demo2](demo/demo2.png)
 
-*Video xem lại:*
+*Xem chi tiết:*
 ![demo3](demo/demo3.png)
 
-*Biểu đồ thống kê trên một phiên:*
+*Biểu đồ báo cáo thống kê:*
 ![demo4](demo/demo4.png)
 
-*Biểu đồ so sánh giữa các phiên trên mỗi tuyến đường:*
+*Biểu đồ tổng quan trong ngày:*
 ![demo5](demo/demo5.png)
 
 ## 🛠️ Công nghệ sử dụng
