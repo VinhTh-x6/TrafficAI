@@ -163,6 +163,7 @@ def bar_chart(df):
 # stacked bar
 def stacked_bar_chart(df):
     fig, ax = create_ax((max(6, len(df) * 0.6), 2.5))
+    df["time_label"] = pd.to_datetime(df["time"]).dt.strftime("%H:%M")
     x = df["time_label"]
     bottom = [0] * len(df)
     for vehicle in ["car", "bus", "truck", "motorbike"]:
@@ -177,10 +178,19 @@ def stacked_bar_chart(df):
         )
         bottom = [b + v for b, v in zip(bottom, df[vehicle])]
     totals = df[["car", "bus", "truck", "motorbike"]].sum(axis=1)
+    ax.plot(
+        x,
+        totals,
+        linewidth=1,
+        marker="o",
+        markersize=2,
+        color="white",
+        label="Total"
+    )
     for i, total in enumerate(totals):
         ax.text(
             i,
-            total + 2,  
+            total + 3,  
             str(int(total)),
             ha="center",
             va="bottom",

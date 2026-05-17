@@ -42,7 +42,7 @@ with tab_run:
             horizontal=True
         )
     with col_setting2:
-        conf = st.slider("🎯 Độ tin cậy phát hiện", 0.1, 1.0, 0.25, 0.05, 
+        conf = st.slider("🎯 Confidence", 0.1, 1.0, 0.25, 0.05, 
                          help="Conf thấp: detect nhiều hơn nhưng dễ sai.\n Conf cao: detect sạch hơn nhưng dễ bỏ sót.")
     with col_setting3:
         if mode == "Polygon":
