@@ -6,7 +6,7 @@
 ![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-red)
 ![License](https://img.shields.io/badge/License-MIT-lightgrey)
 ---
-![TrafficAI Demo](demo/demo_test.gif)
+![TrafficAI Demo](demo/demo_test_v2.gif)
 ---
 ## ✨ Tính năng
 
@@ -56,19 +56,19 @@ streamlit run ./src/app.py
 ## 🎯 Demo trên Streamlit
 
 *Hệ thống xử lí chính:*
-![demo1](demo/demo1.png)
+![demo1](demo/demo_1.png)
 
 *Xem lại lịch sử ghi nhận:*
-![demo2](demo/demo2.png)
+![demo2](demo/demo_2.png)
 
 *Xem chi tiết:*
-![demo3](demo/demo3.png)
+![demo3](demo/demo_3.png)
 
 *Biểu đồ báo cáo thống kê:*
-![demo4](demo/demo4.png)
+![demo4](demo/demo_4.png)
 
 *Biểu đồ tổng quan trong ngày:*
-![demo5](demo/demo5.png)
+![demo5](demo/demo_5.png)
 
 ## 🛠️ Công nghệ sử dụng
 
