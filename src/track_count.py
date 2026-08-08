@@ -1,6 +1,10 @@
 import cv2
 from ultralytics import YOLO
 import numpy as np
+import os
+import subprocess
+import tempfile
+import uuid
 
 class VehicleCounter:
     def __init__(self, model_path, mode="polygon", region_points=None, conf=0.25, show_region=True):
@@ -25,9 +29,9 @@ class VehicleCounter:
         self.track_list = {}
         self.counted_ids = set()
 
-    # xử lý từng frame, trả về frame đã vẽ bounding box và cập nhật đếm xe
+    # process each frame, return the frame with drawn bounding boxes and updated vehicle counts
     def process_frame(self, frame):
-        # dùng model để detect và track xe
+        # use the model to detect and track vehicles
         results = self.model.track(
             source=frame,
             imgsz=640,
@@ -35,7 +39,7 @@ class VehicleCounter:
             tracker="bytetrack.yaml",
             persist=True
         )
-        # vẽ line nếu có
+        # draw line if present
         if self.mode == "line" and self.show_region and self.line_points is not None:
             p1, p2 = self.line_points
             cv2.line(frame, p1, p2, (255, 181, 197), 2)
@@ -45,7 +49,7 @@ class VehicleCounter:
         boxes = results[0].boxes
         if boxes is None or boxes.id is None:
             return frame
-        # lấy thông tin bounding box, ID và class của đối tượng
+        # get bounding box info, ID and class of the object
         ids = boxes.id.cpu().numpy().astype(int)
         xyxy = boxes.xyxy.cpu().numpy()
         cls = boxes.cls.cpu().numpy().astype(int)
@@ -53,7 +57,7 @@ class VehicleCounter:
         for box, id, cl in zip(xyxy, ids, cls):
             x1, y1, x2, y2 = map(int, box)
             cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
-            # lấy tên class và màu tương ứng
+            # get class name and corresponding color
             label = self.model.names[int(cl)]
             color = self.colors.get(label, (255,64,64))
             if self.mode == "polygon":
@@ -63,13 +67,13 @@ class VehicleCounter:
             
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 1)
             cv2.circle(frame, (cx, cy), 1, (191,62,255), -1)
-            # tên class và ID của đối tượng
+            # class name and ID of the object
             text = f"#{id} {label}"
             (text_w, text_h), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.35, 1)
             cv2.rectangle(frame, (x1, y1 - text_h - 2), (x1 + text_w + 2, y1), color, -1)
             cv2.putText(frame, text, (x1 + 1, y1 - 1), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 255), 1, cv2.LINE_AA)
 
-        # vẽ vùng polygon nếu có
+        # draw polygon region if present
         if self.mode == "polygon" and self.region_points is not None and self.show_region:
             over = frame.copy()
             cv2.fillPoly(over, [self.region_points], (255, 181, 197))
@@ -78,7 +82,7 @@ class VehicleCounter:
             cv2.polylines(frame, [self.region_points], True, (255, 181, 197), 1)
         return frame
     
-    # đếm xe qua line
+    # count vehicles crossing the line
     def _count_line(self, id, cx, cy, label):
         p1, p2 = self.line_points
         if id not in self.track_list:
@@ -103,7 +107,7 @@ class VehicleCounter:
                         self.class_counts[label] += 1
                         self.counted_ids.add(id)
 
-    # đếm xe qua polygon    
+    # count vehicles inside the polygon
     def _count_polygon(self, id, cx, cy, label):
         if self.region_points is None:
             return
@@ -113,21 +117,65 @@ class VehicleCounter:
                 self.class_counts[label] += 1
                 self.counted_ids.add(id)
 
-# generator function để xử lý video và trả về frame đã vẽ bounding box cùng với số lượng xe đếm được
+
+# ------------------------------------------------------------------
+# Video encoding helpers
+#   cv2.VideoWriter with fourcc 'H264' is almost NEVER available in the
+#   opencv-python build installed via pip (encoder missing due to
+#   licensing) — the writer silently fails to initialize and no frames
+#   get written, but the old code never checked out.isOpened() so no
+#   error was ever raised.
+#   Solution: write using 'mp4v' (always available) to a temp file,
+#   then re-encode to real H.264 using ffmpeg — a codec every browser
+#   can play via the <video> tag.
+# ------------------------------------------------------------------
+def _get_ffmpeg_exe():
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except ImportError:
+        return "ffmpeg"
+
+
+def _reencode_to_h264(src_path, dst_path):
+    """Re-encode src_path (mp4v) to H.264 (yuv420p, faststart) at dst_path."""
+    ffmpeg_exe = _get_ffmpeg_exe()
+    cmd = [
+        ffmpeg_exe, "-y",
+        "-i", src_path,
+        "-vcodec", "libx264",
+        "-pix_fmt", "yuv420p",
+        "-preset", "fast",
+        "-crf", "23",
+        "-movflags", "+faststart",
+        dst_path,
+    ]
+    try:
+        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    except FileNotFoundError:
+        raise RuntimeError(
+            "ffmpeg not found. Run: pip install imageio-ffmpeg "
+            "(or install ffmpeg manually and add it to PATH)."
+        )
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"ffmpeg re-encode failed: {e.stderr.decode(errors='ignore')}")
+
+
+# generator function to process the video and yield frames with drawn bounding boxes along with the vehicle counts
 def tracking_counting(source, model_path, output_path="output.mp4", mode="polygon", 
                       region_points=None, location=None, conf=0.25, show_region=True):
-    # mở video 
+    # open video 
     cap = cv2.VideoCapture(source)
     assert cap.isOpened(), "Cannot open source"
 
     counter = VehicleCounter(model_path, mode=mode, conf=conf, show_region=show_region)
-    # lấy thông số video để tạo video output và xử lý frame
+    # get video parameters to create the output video and process frames
     w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = cap.get(cv2.CAP_PROP_FPS)
     if fps == 0 or fps is None:
         fps = 25
-    # định nghĩa polygon/line 
+    # define polygon/line 
     line_points = None
     if location == "Cầu Giấy - Trần Quý Kiên - C167.10-PTZ":
         region_points = np.array([[168, 82], [403, 93], [426, 159], [86, 143]], dtype=np.int32).reshape((-1, 1, 2))
@@ -137,23 +185,35 @@ def tracking_counting(source, model_path, output_path="output.mp4", mode="polygo
         line_points = ((144, 113), (431, 161))
     counter.region_points = region_points
     counter.line_points = line_points
-    # tạo video writer để lưu video output
-    out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'H264'), fps, ((452, 256)))
+
+    # write to a TEMP file using mp4v (always available) — will be re-encoded to H.264 in the next step
+    tmp_raw_path = os.path.join(tempfile.gettempdir(), f"raw_{uuid.uuid4().hex}.mp4")
+    out = cv2.VideoWriter(tmp_raw_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (452, 256))
+    if not out.isOpened():
+        cap.release()
+        raise RuntimeError(
+            f"Failed to initialize VideoWriter for temp file '{tmp_raw_path}'. "
+            "Check whether the mp4v codec is available in the installed OpenCV build."
+        )
 
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             break
-        # resize frame tương ứng cho region_points
+        # resize frame to match region_points
         frame = cv2.resize(frame, (452, 256))
         frame = counter.process_frame(frame)
         out.write(frame)
-        # trả về frame đã vẽ bounding box và số lượng xe đếm được để cập nhật UI
+        # yield the frame with drawn bounding boxes and the vehicle counts to update the UI
         yield frame, counter.class_counts
-    # giải phóng tài nguyên
+    # release resources
     cap.release()
     out.release()
 
+    # re-encode the temp file to real H.264 before returning output_path
+    _reencode_to_h264(tmp_raw_path, output_path)
+    if os.path.exists(tmp_raw_path):
+        os.remove(tmp_raw_path)
+
 if __name__ == "__main__":
     print("Done!")
-    

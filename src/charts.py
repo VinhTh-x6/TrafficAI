@@ -1,39 +1,54 @@
-import matplotlib.pyplot as plt
-import seaborn as sns
 import pandas as pd
 import numpy as np
+import plotly.graph_objects as go
 
-# theme
-BG = "#0f172a"
-PANEL = "#111827"
-GRID = "#334155"
-TEXT = "#e5e7eb"
-SUBTLE = "#94a3b8"
+# theme (aligned with layout.py design tokens: night-asphalt dashboard)
+# Charts are built with Plotly instead of matplotlib/seaborn: Plotly renders in the
+# browser (SVG/Canvas), so it actually picks up the same web fonts layout.py already
+# @imports (Inter / JetBrains Mono) instead of falling back to server-side matplotlib
+# fonts — and it blends into the dark UI natively instead of shipping a static PNG.
+PANEL_2 = "#161B26"   # matches layout.py's BG_PANEL_2 — the bordered-card background
+GRID = "#242B38"
+TEXT = "#E8EAED"
+SUBTLE = "#7B8794"
+AMBER = "#FFB020"
+TEAL = "#2DD4BF"
 COLORS = {
     "car": "#22c55e",
-    "bus": "#f59e0b",
-    "truck": "#ef4444",
-    "motorbike": "#38bdf8"
+    "bus": "#FFB020",
+    "truck": "#FF5470",
+    "motorbike": "#2DD4BF"
 }
 
-# style
-def create_ax(figsize=(7, 4)):
-    sns.set_theme(style="white")
-    fig, ax = plt.subplots(figsize=figsize, dpi=200)
-    fig.patch.set_facecolor(BG)
-    ax.set_facecolor(PANEL)
-    ax.grid(axis="y", color=GRID, alpha=0.16, linewidth=0.8)
-    ax.grid(axis="x", visible=False)
+FONT_SANS = "Inter, 'Space Grotesk', sans-serif"
+FONT_MONO = "'JetBrains Mono', Consolas, monospace"
 
-    for spine in ax.spines.values():
-        spine.set_visible(False)
 
-    ax.tick_params(colors=SUBTLE, labelsize=6)
-    ax.xaxis.label.set_color(TEXT)
-    ax.yaxis.label.set_color(TEXT)
-    return fig, ax
+def _base_layout(height=320, showlegend=False):
+    """Shared layout: transparent background (blends into the card container),
+    Inter for general text, gridlines matching the dashboard's border color."""
+    return dict(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(family=FONT_SANS, color=SUBTLE, size=12),
+        margin=dict(l=10, r=20, t=10, b=10),
+        height=height,
+        showlegend=showlegend,
+        legend=dict(
+            orientation="v",
+            font=dict(family=FONT_SANS, color=SUBTLE, size=12),
+            bgcolor="rgba(0,0,0,0)",
+        ),
+        hoverlabel=dict(
+            bgcolor=PANEL_2,
+            font_family=FONT_MONO,
+            font_color=TEXT,
+            bordercolor=GRID,
+        ),
+    )
 
-# heatmap data
+
+# heatmap data (unchanged — pure pandas, independent of the plotting library)
 def prepare_heatmap_data(df, n_bins=10):
     df_heat = df.copy()
     if len(df_heat) <= 1:
@@ -63,148 +78,173 @@ def prepare_heatmap_data(df, n_bins=10):
     )
     return df_heat
 
+
 # heatmap
 def heatmap_chart(df):
-    fig, ax = create_ax((4, 2))
-    heat_df = (
-        df.set_index("time")[["car", "bus", "truck", "motorbike"]]
-        .T
+    raw = df[["car", "bus", "truck", "motorbike"]].T.values.astype(float)
+    # global log1p scale: compresses the dominant type (e.g. motorbike ~100)
+    # while still separating small counts (1 vs 2 vs 3) on low-volume rows.
+    # Per-row normalization was tried but it amplifies noise — a single
+    # stray count on a near-zero row (e.g. truck) gets divided by its own
+    # tiny max and turns into a false "Peak" block across many cells.
+    z_log = np.log1p(raw)
+    peak = raw.max()
+    if peak <= 0:
+        tick_vals = [0]
+        zmax = 1
+    else:
+        candidates = [0, 1, max(2, round(peak * 0.1)), max(3, round(peak * 0.4)), round(peak)]
+        tick_vals = sorted(set(v for v in candidates if v <= peak))
+        zmax = np.log1p(peak)
+
+    fig = go.Figure(
+        go.Heatmap(
+            z=z_log,
+            x=df["time"],
+            y=["Car", "Bus", "Truck", "Motorbike"],
+            customdata=raw,
+            colorscale=[[0, PANEL_2], [0.5, TEAL], [1, AMBER]],
+            zmin=0,
+            zmax=zmax,
+            hovertemplate="%{y} · %{x}<br>%{customdata:.0f} vehicles<extra></extra>",
+            colorbar=dict(
+                thickness=10,
+                outlinewidth=0,
+                tickvals=[np.log1p(v) for v in tick_vals],
+                ticktext=[str(int(v)) for v in tick_vals],
+                tickfont=dict(family=FONT_MONO, size=10, color=SUBTLE),
+            ),
+        )
     )
-    sns.heatmap(
-        heat_df,
-        ax=ax,
-        cmap="YlGnBu",
-        square=True,      
-        linewidths=0.6,    
-        linecolor=BG,
-        cbar_kws={
-            "pad": 0.15,
-            "fraction": 0.03,
-            "shrink": 0.6       
-        }
+    fig.update_layout(**_base_layout(height=220))
+    fig.update_xaxes(
+        title=dict(text="Time", font=dict(family=FONT_SANS, size=12, color=TEXT)),
+        tickfont=dict(family=FONT_MONO, size=10, color=SUBTLE),
+        showgrid=False,
     )
-    cbar = ax.collections[0].colorbar
-    cbar.ax.tick_params(labelsize=5, colors=SUBTLE)
-    ax.set_xlabel("Thời gian", fontsize=6, color=TEXT, labelpad=2)
-    ax.set_ylabel("")
-    ax.set_yticklabels(
-        ["Car", "Bus", "Truck", "Motorbike"],
-        rotation=0,
-        fontsize=5,        
-        color=SUBTLE
+    fig.update_yaxes(
+        tickfont=dict(family=FONT_SANS, size=11, color=SUBTLE),
+        showgrid=False,
     )
-    # ax.set_xticks(range(len(heat_df.columns)))
-    ax.set_xticklabels(
-        [str(x) for x in heat_df.columns],
-        rotation=0,
-        fontsize=5,        
-        color=SUBTLE
-    )
-    for spine in ax.spines.values():
-        spine.set_visible(False)
-    fig.tight_layout(pad=0.3)  
     return fig
+
 
 # line
 def line_chart(df):
-    fig, ax = create_ax((15, 8))
+    fig = go.Figure()
     for vehicle in ["car", "bus", "truck", "motorbike"]:
-        ax.plot(
-            df["time"],
-            df[vehicle],
-            linewidth=5,
-            label=vehicle.capitalize(),
-            color=COLORS[vehicle]
+        fig.add_trace(
+            go.Scatter(
+                x=df["time"],
+                y=df[vehicle],
+                name=vehicle.capitalize(),
+                mode="lines",
+                line=dict(color=COLORS[vehicle], width=3, shape="spline", smoothing=0.4),
+                hovertemplate=f"{vehicle.capitalize()}: " + "%{y:.1f}<extra></extra>",
+            )
         )
-    ax.set_xlabel("Thời gian", fontsize=26)
-    ax.set_ylabel("Số phương tiện", fontsize=26)
-    ax.legend(
-        loc="center left",
-        bbox_to_anchor=(1.02, 0.5),
-        frameon=False,
-        labelcolor=SUBTLE,
-        fontsize=25
+    fig.update_layout(**_base_layout(height=300, showlegend=True))
+    fig.update_layout(hovermode="x unified")
+    fig.update_xaxes(
+        title=dict(text="Time", font=dict(family=FONT_SANS, size=13, color=TEXT)),
+        tickfont=dict(family=FONT_MONO, size=11, color=SUBTLE),
+        showgrid=False,
+        showspikes=True,
+        spikemode="across",
+        spikedash="dot",
+        spikecolor=SUBTLE,
+        spikethickness=1,
     )
-    ax.grid(axis="y", color=GRID, alpha=0.16, linewidth=5)
-    ax.tick_params(labelsize=25)
-    fig.tight_layout(pad=0.8)
+    fig.update_yaxes(
+        title=dict(text="Vehicles", font=dict(family=FONT_SANS, size=13, color=TEXT)),
+        tickfont=dict(family=FONT_MONO, size=11, color=SUBTLE),
+        showgrid=True,
+        gridcolor=GRID,
+        zeroline=False,
+    )
     return fig
 
-# horizontal bar 
+
+# horizontal bar
 def bar_chart(df):
-    fig, ax = create_ax((15, 8))
     df_sorted = df.sort_values("Count", ascending=True)
-    bars = ax.barh(
-        df_sorted["Vehicle Type"],
-        df_sorted["Count"],
-        color=[COLORS[v.lower()] for v in df_sorted["Vehicle Type"]],
-        height=0.72,
-        linewidth=2
+    colors = [COLORS.get(v.lower(), AMBER) for v in df_sorted["Vehicle Type"]]
+    fig = go.Figure(
+        go.Bar(
+            x=df_sorted["Count"],
+            y=df_sorted["Vehicle Type"],
+            orientation="h",
+            marker=dict(color=colors),
+            text=df_sorted["Count"],
+            texttemplate="%{text}",
+            textposition="outside",
+            textfont=dict(family=FONT_MONO, size=13, color=TEXT),
+            hovertemplate="%{y}: %{x}<extra></extra>",
+        )
     )
     max_count = df["Count"].max()
-    for bar in bars:
-        width = bar.get_width()
-        ax.text(
-            width + max_count * 0.015,
-            bar.get_y() + bar.get_height() / 2,
-            f"{int(width)}",
-            va="center",
-            color=TEXT,
-            fontsize=25
-        )
-    ax.grid(axis="y", color=GRID, alpha=0.16, linewidth=5)
-    ax.set_xlim(0, max_count * 1.12)
-    ax.set_xlabel("Số phương tiện", fontsize=26)
-    ax.set_ylabel("")
-    ax.tick_params(labelsize=25)
-    fig.tight_layout(pad=1.4)
+    fig.update_layout(**_base_layout(height=300))
+    fig.update_layout(bargap=0.35)
+    fig.update_traces(marker=dict(color=colors, cornerradius=6), selector=dict(type="bar"))
+    fig.update_xaxes(
+        title=dict(text="Vehicles", font=dict(family=FONT_SANS, size=12, color=TEXT)),
+        tickfont=dict(family=FONT_MONO, size=11, color=SUBTLE),
+        range=[0, max_count * 1.18],
+        nticks=5,
+        showgrid=True,
+        gridcolor=GRID,
+        zeroline=False,
+    )
+    fig.update_yaxes(
+        tickfont=dict(family=FONT_SANS, size=12, color=SUBTLE),
+        showgrid=False,
+    )
     return fig
 
-# stacked bar
+
+# stacked bar (with a total line overlay)
 def stacked_bar_chart(df):
-    fig, ax = create_ax((max(6, len(df) * 0.6), 2.5))
+    df = df.copy()
     df["time_label"] = pd.to_datetime(df["time"]).dt.strftime("%H:%M")
-    x = df["time_label"]
-    bottom = [0] * len(df)
-    for vehicle in ["car", "bus", "truck", "motorbike"]:
-        ax.bar(
-            x,
-            df[vehicle],
-            bottom=bottom,
-            label=vehicle.capitalize(),
-            color=COLORS[vehicle],
-            width=0.5,
-            linewidth=0.4
-        )
-        bottom = [b + v for b, v in zip(bottom, df[vehicle])]
     totals = df[["car", "bus", "truck", "motorbike"]].sum(axis=1)
-    ax.plot(
-        x,
-        totals,
-        linewidth=1,
-        marker="o",
-        markersize=2,
-        color="white",
-        label="Total"
-    )
-    for i, total in enumerate(totals):
-        ax.text(
-            i,
-            total + 3,  
-            str(int(total)),
-            ha="center",
-            va="bottom",
-            fontsize=6,
-            color=TEXT
+
+    fig = go.Figure()
+    for vehicle in ["car", "bus", "truck", "motorbike"]:
+        fig.add_trace(
+            go.Bar(
+                x=df["time_label"],
+                y=df[vehicle],
+                name=vehicle.capitalize(),
+                marker=dict(color=COLORS[vehicle], cornerradius=4),
+                width=0.35,
+                hovertemplate=f"{vehicle.capitalize()}: " + "%{y}<extra></extra>",
+            )
         )
-    ax.set_xlabel("Thời gian", fontsize=7)
-    ax.set_ylabel("Số phương tiện", fontsize=7)
-    ax.legend(
-        loc="center left",
-        bbox_to_anchor=(1.02, 0.5),
-        frameon=False,
-        labelcolor=SUBTLE,
-        fontsize=6
+    fig.add_trace(
+        go.Scatter(
+            x=df["time_label"],
+            y=totals,
+            mode="lines+markers+text",
+            text=totals.astype(int).astype(str),
+            textposition="top center",
+            textfont=dict(family=FONT_MONO, size=10, color=TEXT),
+            line=dict(color="white", width=1.5),
+            marker=dict(size=6, color="white", line=dict(width=1, color=PANEL_2)),
+            name="Total",
+            hovertemplate="Total: %{y}<extra></extra>",
+        )
     )
-    fig.tight_layout(pad=0.8)
+    fig.update_layout(barmode="stack", **_base_layout(height=300, showlegend=True))
+    fig.update_xaxes(
+        title=dict(text="Time", font=dict(family=FONT_SANS, size=12, color=TEXT)),
+        tickfont=dict(family=FONT_MONO, size=10, color=SUBTLE),
+        showgrid=False,
+    )
+    fig.update_yaxes(
+        title=dict(text="Vehicles", font=dict(family=FONT_SANS, size=12, color=TEXT)),
+        tickfont=dict(family=FONT_MONO, size=10, color=SUBTLE),
+        showgrid=True,
+        gridcolor=GRID,
+        zeroline=False,
+    )
     return fig

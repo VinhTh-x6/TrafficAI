@@ -10,58 +10,62 @@ from charts import *
 from history import render_history_tab, load_logs, init_db, save_log, LOCATIONS
 
 # Streamlit page configuration and styling
-st.set_page_config(page_title="TrafficAI", layout="wide")
+st.set_page_config(page_title="TrafficAI", page_icon="🚦", layout="wide")
 pio.templates.default = "plotly_dark"
-# render header and apply UI styles
-render_header()
 render_ui_style()
-init_db()  
+render_header()
+init_db()
 
 # session state
 for key in ["done", "history", "final_counts"]:
     if key not in st.session_state:
         st.session_state[key] = False if key == "done" else None if key == "final_counts" else []
-tab_run, tab_history = st.tabs(["🚀 Hệ thống", "📚 Xem lại"])
-# Run tab
-with tab_run:
-    # input source
-    st.markdown("### 📁 Tải video lên")
-    video_file = st.file_uploader("Chọn file", type=["mp4"])
-    col_info1, col_info2 = st.columns(2)
-    with col_info1:
-        location = st.selectbox("📍 Vị trí", LOCATIONS)
-    with col_info2:
-        datetime_input = st.datetime_input("📅 Thời gian", value=pd.Timestamp.now().to_pydatetime())
-    # option 
-    st.markdown("### ⚙️ Cài đặt")
-    col_setting1, col_setting2, col_setting3 = st.columns(3)
-    with col_setting1:
-        mode = st.radio(
-            "📐 Chế độ đếm",
-            ["Polygon", "Line"],
-            horizontal=True
-        )
-    with col_setting2:
-        conf = st.slider("🎯 Confidence", 0.1, 1.0, 0.25, 0.05, 
-                         help="Conf thấp: detect nhiều hơn nhưng dễ sai.\n Conf cao: detect sạch hơn nhưng dễ bỏ sót.")
-    with col_setting3:
-        if mode == "Polygon":
-            show_region = st.checkbox("Hiển thị Polygon", True)
-        else:
-            show_region = st.checkbox("Hiển thị Line", True)
-    run = st.button("🚀 Bắt đầu xử lý")
-    timestamp = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
-    output_video_path = os.path.join(
-        tempfile.gettempdir(),
-        f"traffic_{timestamp}.mp4"
+
+# ------------------------------------------------------------------
+# Sidebar — control panel: source, location, and detection settings
+# ------------------------------------------------------------------
+with st.sidebar:
+    st.markdown("#### 📁 Video Source")
+    video_file = st.file_uploader("Choose file", type=["mp4"], label_visibility="collapsed")
+
+    render_divider()
+
+    st.markdown("#### 📍 Location &amp; Time")
+    location = st.selectbox("Location", LOCATIONS)
+    datetime_input = st.datetime_input("Time", value=pd.Timestamp.now().to_pydatetime())
+
+    render_divider()
+
+    st.markdown("#### ⚙️ Detection Settings")
+    mode = st.radio("Counting Mode", ["Polygon", "Line"], horizontal=True)
+    conf = st.slider(
+        "Confidence", 0.1, 1.0, 0.25, 0.05,
+        help="Low conf: detects more but is more error-prone.\nHigh conf: cleaner detection but may miss some."
+    )
+    show_region = st.checkbox(
+        "Show " + ("Polygon" if mode == "Polygon" else "Line"), True
     )
 
-    # process video
+    render_divider()
+    run = st.button("🚀  Start Processing", use_container_width=True)
+
+SAVED_VIDEOS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "saved_videos")
+os.makedirs(SAVED_VIDEOS_DIR, exist_ok=True)
+
+timestamp = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
+output_video_path = os.path.join(SAVED_VIDEOS_DIR, f"traffic_{timestamp}.mp4")
+
+tab_run, tab_history = st.tabs(["🚀 System", "📚 History"])
+
+# ------------------------------------------------------------------
+# Run tab
+# ------------------------------------------------------------------
+with tab_run:
+    if run and not video_file:
+        st.warning("⚠️ Please upload a video in the sidebar to start!")
+        st.stop()
+
     if run:
-        # set parameters based on source type
-        if not video_file:
-            st.warning("Vui lòng tải video lên để bắt đầu!")
-            st.stop()
         tfile = tempfile.NamedTemporaryFile(delete=False)
         tfile.write(video_file.read())
         source = tfile.name
@@ -72,18 +76,16 @@ with tab_run:
         col_video, col_table = st.columns([2, 1])
         history = []
         frame_id = 0
-        # UI containers
         with col_video:
-            st.markdown("### 🎥 Video hiển thị")
+            st.markdown("##### 🎥 Live Camera")
             video_box = st.empty()
             status_box = st.empty()
             progress_container = st.empty()
             progress_bar = progress_container.progress(0)
         with col_table:
-            st.markdown("### 🚗 Bảng thống kê")
-            table_box = st.empty()
+            st.markdown("##### 🚗 Statistics")
             kpi_box = st.empty()
-        # run tracking and counting
+
         generator = tracking_counting(
             source=source,
             model_path=r"models/best.pt",
@@ -95,18 +97,12 @@ with tab_run:
         )
         for frame, counts in generator:
             frame_id += 1
-            # convert BGR to RGB for display
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             video_box.image(frame, use_container_width=True)
-            df = pd.DataFrame({
-                "Vehicle Type": list(counts.keys()),
-                "Count": list(counts.values())
-            })
-            # update table & KPI
-            table_box.dataframe(df, use_container_width=True)
-            total = sum(counts.values())
-            kpi_box.markdown(f"##### Tổng phương tiện: **{total}**")
-            # history for line chart
+
+            with kpi_box.container():
+                render_kpi_cards(counts)
+
             history.append({
                 "time": round(frame_id / fps, 2),
                 "car": counts.get("car", 0),
@@ -114,58 +110,68 @@ with tab_run:
                 "truck": counts.get("truck", 0),
                 "motorbike": counts.get("motorbike", 0)
             })
-            # update progress/status
-            percent = int((frame_id / total_frames) * 100)
-            progress_bar.progress(percent)
-            status_box.markdown(f"🚦 Đang xử lý... **{percent}%**")
+
+            percent = int((frame_id / total_frames) * 100) if total_frames else 0
+            progress_bar.progress(min(percent, 100))
+            status_box.markdown(
+                f'<span class="status-pill">🚦 Processing — {percent}%</span>',
+                unsafe_allow_html=True
+            )
 
         progress_container.empty()
-        # final status update
-        status_box.markdown("✅ Hoàn thành")
-        # save history and final counts to session state for visualization
+        # track_count.py already re-encodes the video to output_video_path as
+        # H.264 (see the _reencode_to_h264 function in tracking_counting), so
+        # there is no need to re-encode again here.
+        status_box.markdown('<span class="status-pill">✅ Completed</span>', unsafe_allow_html=True)
+
         st.session_state.history = history
         st.session_state.final_counts = counts
         st.session_state.done = True
         if location:
-            save_log(
-                location.strip(),
-                str(datetime_input),
-                output_video_path,
-                counts,
-                history
-            )
+            save_log(location.strip(), str(datetime_input), output_video_path, counts, history)
 
     # data visualization
     if st.session_state.done:
-        st.markdown("---")
-        # final counts for pie and bar charts
+        render_divider()
         counts = st.session_state.final_counts
         df_final = pd.DataFrame({
             "Vehicle Type": list(counts.keys()),
             "Count": list(counts.values())
         })
-        # prepare line chart data
         df_line = pd.DataFrame(st.session_state.history)
         df_line["time"] = df_line["time"].astype(int)
-        df_line = df_line.groupby("time")[[
-            "car", "bus", "truck", "motorbike"
-        ]].mean().reset_index()
+        df_line = df_line.groupby("time")[["car", "bus", "truck", "motorbike"]].mean().reset_index()
         for col in ["car", "bus", "truck", "motorbike"]:
             df_line[col] = df_line[col].rolling(5, min_periods=1).mean()
 
         col_bar, col_line = st.columns(2)
-        # bar chart
         with col_bar:
-            st.subheader("📊 Phân bố phương tiện")
-            st.pyplot(bar_chart(df_final))
-        # line chart
+            st.markdown("##### 📊 Vehicle Distribution")
+            with st.container(border=True):
+                st.plotly_chart(bar_chart(df_final), use_container_width=True, config={"displayModeBar": False})
         with col_line:
-            st.subheader("📈 Lưu lượng theo thời gian")
-            st.pyplot(line_chart(df_line))
-        st.markdown("### 🔥 Mật độ theo thời gian")
+            st.markdown("##### 📈 Traffic Flow Over Time")
+            with st.container(border=True):
+                st.plotly_chart(line_chart(df_line), use_container_width=True, config={"displayModeBar": False})
+
+        st.markdown("##### 🔥 Density Over Time")
         df_heat = prepare_heatmap_data(df_line)
-        st.pyplot(heatmap_chart(df_heat))
-    
+        with st.container(border=True):
+            st.plotly_chart(heatmap_chart(df_heat), use_container_width=True, config={"displayModeBar": False})
+    elif not run:
+        empty_html = (
+            '<div class="kpi-card" style="text-align:center; padding:2.5rem 1rem; --kpi-color:#2DD4BF;">'
+            '<div style="font-size:2rem;">📡</div>'
+            '<div style="margin-top:8px; color:#E8EAED; font-family:\'Space Grotesk\',sans-serif; font-weight:600;">'
+            'No processing session yet</div>'
+            '<div style="margin-top:4px; color:#7B8794; font-size:0.85rem;">'
+            'Upload a video in the left sidebar and click "Start Processing" to begin monitoring.</div>'
+            '</div>'
+        )
+        st.markdown(empty_html, unsafe_allow_html=True)
+
+# ------------------------------------------------------------------
 # History tab
+# ------------------------------------------------------------------
 with tab_history:
     render_history_tab(load_logs, prepare_heatmap_data, bar_chart, line_chart, heatmap_chart, stacked_bar_chart)
